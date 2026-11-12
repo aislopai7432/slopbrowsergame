@@ -10,11 +10,12 @@ Open `index.html` in a browser, or play the GitHub Pages version if it's enabled
 
 | Key | Action |
 | --- | --- |
-| WASD / arrows | Move (relative to the camera) |
+| WASD / arrows | Fly where the camera looks |
+| R / F | Float straight up / down |
 | Mouse | Turn the camera (click to lock the pointer) |
 | Space | Split: half of each cell launches forward |
 | E (hold) | Drop pellets of your own mass |
 | Shift | Speed boost (costs a little mass) |
 | Esc / P | Pause |
 
-You can eat any blob with 20% less mass than you by rolling over its centre. Split cells pull back together and merge after a few seconds. The main menu lets you set your name, colour and difficulty.
+You fly freely in 3D. You can eat any blob with 8% less mass than you just by bumping into it (bots need a 20% edge). Split cells pull back together and merge after a few seconds. The main menu lets you set your name, colour and difficulty.
