@@ -53,6 +53,7 @@
   #overMenu .btnrow button{margin-top:12px;font-size:17px;padding:10px}
   #specTxt{display:inline-block;margin-top:6px;padding:4px 14px;border-radius:999px;font-size:14px;font-weight:600;color:#fff;
     text-shadow:0 1px 2px rgba(0,60,120,.6);background:linear-gradient(180deg,#c4f1ff 0%,#5cc8f5 48%,#2299dd 52%,#5fd0ff 100%)}
+  #overNote{font-size:13px;margin-top:6px;color:#1477c4;font-weight:600}
   #specHint{font-size:12px;opacity:.65;margin-top:4px}
   #lb{position:absolute;top:16px;right:18px;padding:12px 16px;border-radius:20px;min-width:180px;font-size:14px}
   #lb h3{margin:0 0 6px;font-size:15px;text-align:center;font-weight:600;letter-spacing:.5px}
@@ -288,6 +289,7 @@
     <div id="specHint">Drag to look around</div>
     <div class="btnrow"><button class="primary" id="againBtn">Play again</button><button id="menuBtn">Main menu</button></div>
     <div class="best" id="overBest"></div>
+    <div id="overNote" class="hidden"></div>
   </div>
 </div>
 
@@ -939,6 +941,7 @@ setDiff(diffKey);
 
 // ---------- patch notes (newest first; the first entry is the current version) ----------
 const PATCH_NOTES = [
+ {"v": "0.14", "title": "Same World", "notes": ["When the host dies, the game keeps going for everyone and the host respawns into the same world", "Death screen in multiplayer: Respawn puts you back into the same game", "Ending a room now takes a second tap, so the host can't close everyone's game by accident", "Players see Leave room instead of Main menu while in a room"]},
  {"v": "0.13", "title": "Multiplayer", "notes": ["Play with friends: press Host game to open a room, then share the 5-letter room code", "Friends press Join game and type the code to jump into your world, bots and all", "Up to 8 players per room, each with their own name, colour and class", "Room code shown on screen and in the pause menu so it's easy to share", "When someone fills the box, everyone sees who won and a new round starts automatically", "Freshly spawned players are safe for 2 seconds", "No accounts or servers needed: players connect directly to the host's browser"]},
  {"v": "0.12", "title": "Bubble Bliss", "notes": ["The game has a name: Bubble Bliss (formerly Blob Arena 3D)", "Your name, colour, class and best score carry over"]},
  {"v": "0.11", "title": "Extra Aero", "notes": ["The arena now sits on a grassy island in a shiny blue lake, with the hills as islands", "Rainbow soap bubbles that shimmer as you look at them", "Sun rays and a lens flare when you look toward the sun", "Aurora light swooshes curving across the sky, like the old Windows wallpapers", "Soft glowing orbs floating up the screen", "Bluer, richer sky", "Tidier main menu that fits on shorter screens"]},
@@ -1065,8 +1068,24 @@ $('againBtn').onclick = start;
 $('howBtn').onclick = () => show('howMenu');
 $('howBack').onclick = () => show('mainMenu');
 $('resumeBtn').onclick = resume;
-$('quitBtn').onclick = toMainMenu;
-$('menuBtn').onclick = toMainMenu;
+$('quitBtn').onclick = () => leaveClick('quitBtn');
+$('menuBtn').onclick = () => leaveClick('menuBtn');
+// in a hosted room, leaving ends the game for everyone, so the host has to tap twice
+function leaveClick(id) {
+  const b = $(id);
+  if (net.role !== 'host' || b.dataset.armed) { delete b.dataset.armed; toMainMenu(); return; }
+  b.dataset.armed = '1'; b.textContent = 'Tap again to end it for everyone';
+  setTimeout(() => { delete b.dataset.armed; setLeaveLabels(); }, 3000);
+}
+function setLeaveLabels() {
+  const label = net.role === 'host' ? 'End room' : net.role === 'client' ? 'Leave room' : 'Main menu';
+  $('quitBtn').textContent = label; $('menuBtn').textContent = label;
+  $('againBtn').textContent = net.role === 'solo' ? 'Play again' : 'Respawn';
+  $('overNote').classList.toggle('hidden', net.role === 'solo');
+  $('overNote').textContent = net.role === 'host'
+    ? "You're the host: the game keeps going while you're dead. Respawn to jump back into the same world."
+    : 'The game keeps going. Respawn to jump back in.';
+}
 $('winAgain').onclick = start;
 $('winMenuBtn').onclick = toMainMenu;
 
@@ -1080,6 +1099,7 @@ function toMainMenu() {
   show('mainMenu');
 }
 function pause() {
+  setLeaveLabels();
   state = 'paused'; document.exitPointerLock?.(); show('pauseMenu');
   joy.x = joy.y = 0; joy.id = null; lookId = null; stick.style.display = 'none'; keys.KeyE = keys.KeyR = keys.KeyF = false;
 }
@@ -1182,6 +1202,7 @@ function spectateTarget() {
 }
 
 function die(killer) {
+  setLeaveLabels();
   state = 'over'; me.alive = false; spectate = killer;
   if (peak > best) { best = Math.floor(peak); store.set('blob3d_best', best); }
   document.exitPointerLock?.();

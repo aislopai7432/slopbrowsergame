@@ -2,7 +2,14 @@
 
 Newest first.
 
-## v0.13: Multiplayer (current)
+## v0.14: Same World (current)
+
+- When the host dies, the game keeps going for everyone and the host respawns into the same world
+- Death screen in multiplayer: Respawn puts you back into the same game
+- Ending a room now takes a second tap, so the host can't close everyone's game by accident
+- Players see Leave room instead of Main menu while in a room
+
+## v0.13: Multiplayer
 
 - Play with friends: press Host game to open a room, then share the 5-letter room code
 - Friends press Join game and type the code to jump into your world, bots and all
