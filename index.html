@@ -130,7 +130,9 @@
     background:linear-gradient(180deg,#d4fb9c 0%,#8fdc45 48%,#5cb81e 52%,#93e64f 100%);border:1px solid #4b9b1c}
   .ver ul{margin:0;padding-left:20px;font-size:14px;line-height:1.5}
   .smallbtn{width:auto;margin:8px auto 0;padding:5px 16px;font-size:13px;display:inline-block}
-  .gfxrow{margin-top:6px} #fpsTxt{font-size:12px;opacity:.7;margin-top:4px}
+  .gfxrow{margin-top:6px}
+  #fpsHud{position:absolute;right:18px;bottom:14px;padding:4px 12px;border-radius:999px;font-size:12px;font-weight:600;font-variant-numeric:tabular-nums}
+  body.touch #fpsHud{bottom:auto;top:230px} #fpsTxt{font-size:12px;opacity:.7;margin-top:4px}
   /* Fast graphics: no live blur behind the glass panels and no screen-space extras */
   body.fast .glass{backdrop-filter:none;-webkit-backdrop-filter:none;background:rgba(240,250,255,.88)}
   body.fast #bokeh, body.fast #flare{display:none}
@@ -205,6 +207,7 @@
   <canvas id="radar" class="glass"></canvas>
   <div id="dangerTxt" class="hidden">⚠ Danger behind you!</div>
   <div id="roomBadge" class="glass hidden"></div>
+  <div id="fpsHud" class="glass hidden"></div>
   <div id="netWait" class="glass hidden">⏳ Waiting for the host's game… ask them to keep it open on screen</div>
   <div id="keys" class="glass"><span><kbd>WASD</kbd>Fly</span><span><kbd>Mouse</kbd>Look</span><span><kbd>R</kbd><kbd>F</kbd>Up / down</span>
     <span><kbd>Space</kbd>Split</span><span><kbd>E</kbd>Drop</span><span><kbd>Shift</kbd>Boost</span><span><kbd>Esc</kbd>Pause</span></div>
@@ -279,7 +282,7 @@
     <h2>Paused</h2>
     <div id="pauseRoom" class="hidden"></div>
     <button class="primary" id="resumeBtn">Resume</button>
-    <div class="gfxrow"><button id="gfxBtn2" class="smallbtn">⚙ Graphics: Auto</button><div id="fpsTxt"></div></div>
+    <div class="gfxrow"><button id="gfxBtn2" class="smallbtn">⚙ Graphics: Auto</button> <button id="fpsBtn" class="smallbtn">Show FPS: Off</button><div id="fpsTxt"></div></div>
     <button id="quitBtn">Main menu</button>
   </div>
 </div>
@@ -322,7 +325,7 @@ let gfx = 'auto'; try { gfx = localStorage.getItem('blob3d_gfx') || 'auto'; } ca
 let resScale = 1;
 function applyResolution() {
   const maxPR = gfx === 'fast' ? 1 : (gfx === 'pretty' ? 2 : (IS_TOUCH ? 1.5 : 2));
-  const budget = gfx === 'pretty' ? Infinity : gfx === 'fast' ? 1.0e6 : 2.4e6; // rendered pixels per frame
+  const budget = gfx === 'pretty' ? Infinity : gfx === 'fast' ? 1.0e6 : (IS_TOUCH ? 2.4e6 : 8.3e6); // rendered pixels per frame (8.3M = 4K)
   let pr = Math.min(devicePixelRatio, maxPR, Math.sqrt(budget / (innerWidth * innerHeight)));
   if (gfx === 'auto') pr *= resScale;
   renderer.setPixelRatio(Math.max(0.5, pr));
@@ -331,6 +334,8 @@ function applyResolution() {
 applyResolution();
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.autoUpdate = false; // updated by hand in frame(): every frame below 100 fps, every other frame above
+let shadowFrame = 0;
 document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
@@ -986,6 +991,7 @@ setDiff(diffKey);
 
 // ---------- patch notes (newest first; the first entry is the current version) ----------
 const PATCH_NOTES = [
+ {"v": "0.18", "title": "High Refresh", "notes": ["The game now ticks at your monitor's refresh rate (up to 240 Hz), so 144/200/240 Hz screens get real high-fps movement, not blended 60", "Auto graphics now keeps full resolution (up to 4K) and only lowers it a little (never below 70%) if your PC can't keep up with your monitor", "Shadows redraw every other frame above 100 fps: looks the same, saves your graphics card work", "Show FPS toggle in the pause menu puts a live fps counter on screen", "Pause menu shows your fps, your screen's refresh rate and game tick rate"]},
  {"v": "0.17", "title": "Smooth Sailing", "notes": ["Fixed lag on gaming PCs with high-refresh monitors: the game logic now runs a steady 60 times a second, and drawing stays smooth in between", "Blobs only check pellets near them, making each game tick about 15x cheaper", "Graphics setting (main menu and pause menu): Auto, Fast or Pretty", "Auto keeps resolution sensible on big screens and lowers it a little if frames drop", "Fast turns off shadows and glass blur for older or busy computers", "The pause menu shows your fps and render resolution"]},
  {"v": "0.16", "title": "Glutton", "notes": ["Digestion is twice as fast for everyone", "New class: Glutton 🍩 digests food 3x faster (on top of that), but loses mass faster when big", "Joining a room now checks you and the host are on the same version, and tells you to refresh if not"]},
  {"v": "0.15", "title": "Better Rooms", "notes": ["The host can go back to the main menu without ending the game: the room keeps running for everyone", "\"Back to the game\" puts the host straight back into the same world; End room is a separate button", "The host's game keeps running even if they switch tabs or apps on a computer (to send the code, say)", "Joining shows each step (contacting the server, finding the room, loading the world) instead of hanging", "Clear messages when a room can't be reached, with what to try", "A \"waiting for the host\" notice appears if the host's game stops sending updates"]},
@@ -1293,7 +1299,7 @@ function onOwnerEaten(victim, killer) {
 }
 
 let botSpawnT = 0;
-const SIM_STEP = 1 / 60;
+let SIM_STEP = 1 / 60; // re-tuned to the screen's refresh rate (60-240 ticks a second) once it's measured
 let simAcc = 0, simAlpha = 1; // how far between the last two logic ticks this frame is drawn
 function update(dt) {
   for (const c of cells) (c.prev || (c.prev = new THREE.Vector3())).copy(c.pos);
@@ -1977,14 +1983,25 @@ function updateSpectateText() {
 }
 
 // ---------- performance: fps, automatic resolution, graphics setting ----------
-let fpsFrames = 0, fpsTime = 0, fps = 60, goodSecs = 0;
+let fpsFrames = 0, fpsTime = 0, fps = 60, goodSecs = 0, refreshHz = 60, simHz = 60;
+const recentDts = [];
 function trackFps(rawDt) {
   fpsFrames++; fpsTime += rawDt;
+  if (rawDt > 0.002 && rawDt < 0.05) { recentDts.push(rawDt); if (recentDts.length > 240) recentDts.shift(); }
   if (fpsTime < 1) return;
   fps = Math.round(fpsFrames / fpsTime); fpsFrames = 0; fpsTime = 0;
-  if (gfx !== 'auto' || state !== 'play' || document.hidden) return;
-  if (fps < 50 && resScale > 0.55) { resScale = Math.max(0.55, resScale * 0.85); goodSecs = 0; applyResolution(); }
-  else if (fps >= 58 && resScale < 1 && ++goodSecs >= 5) { resScale = Math.min(1, resScale * 1.1); goodSecs = 0; applyResolution(); }
+  if (document.hidden || recentDts.length < 30) return;
+  // the screen's refresh rate = the fastest frame interval we keep seeing
+  const sorted = [...recentDts].sort((a, b) => a - b);
+  refreshHz = Math.round(1 / sorted[Math.floor(sorted.length * 0.1)]);
+  // tick the game as fast as frames actually arrive (60-240/s), so 200 Hz feels like 200 Hz
+  simHz = Math.max(60, Math.min(240, Math.round(Math.min(refreshHz, fps * 1.05))));
+  SIM_STEP = 1 / simHz;
+  if (gfx !== 'auto' || state !== 'play') return;
+  // Auto keeps the full frame rate first, and gives up a little resolution only when it must
+  const target = refreshHz * 0.9;
+  if (fps < target && resScale > 0.7) { resScale = Math.max(0.7, resScale * 0.9); goodSecs = 0; applyResolution(); }
+  else if (fps >= refreshHz * 0.97 && resScale < 1 && ++goodSecs >= 3) { resScale = Math.min(1, resScale * 1.08); goodSecs = 0; applyResolution(); }
 }
 const GFX_NAMES = {auto: 'Auto', fast: 'Fast', pretty: 'Pretty'};
 function applyGfx() {
@@ -1999,11 +2016,19 @@ function cycleGfx() {
 }
 function updateFpsTxt() {
   const res = Math.round(renderer.getPixelRatio() / (devicePixelRatio || 1) * 100);
-  $('fpsTxt').textContent = `${fps} fps · rendering at ${res}% resolution`;
+  $('fpsTxt').textContent = `${fps} fps on a ${refreshHz} Hz screen · game ticks ${simHz}/s · ${res}% resolution`;
+  $('fpsHud').textContent = `${fps} fps · ${refreshHz} Hz`;
 }
+let showFps = false; try { showFps = localStorage.getItem('blob3d_fps') === '1'; } catch (e) {}
+function applyShowFps() {
+  $('fpsHud').classList.toggle('hidden', !showFps);
+  $('fpsBtn').textContent = `Show FPS: ${showFps ? 'On' : 'Off'}`;
+}
+$('fpsBtn').onclick = () => { showFps = !showFps; store.set('blob3d_fps', showFps ? '1' : '0'); applyShowFps(); };
+applyShowFps();
 $('gfxBtn').onclick = cycleGfx; $('gfxBtn2').onclick = cycleGfx;
 applyGfx();
-setInterval(() => { if (state === 'paused') updateFpsTxt(); }, 500);
+setInterval(() => { if (state === 'paused' || showFps) updateFpsTxt(); }, 500);
 
 // ---------- loop ----------
 for (let i = 0; i < N_BOTS; i++) spawnBot(); // bots play on the title screen
@@ -2028,6 +2053,7 @@ function frame(now) {
   if (state === 'over') updateSpectateText();
   render3D(dt);
   updateCamera(dt);
+  renderer.shadowMap.needsUpdate = fps < 100 || (shadowFrame++ & 1) === 0;
   renderer.render(scene, camera);
   requestAnimationFrame(frame);
 }

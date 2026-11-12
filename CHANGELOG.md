@@ -2,7 +2,15 @@
 
 Newest first.
 
-## v0.17: Smooth Sailing (current)
+## v0.18: High Refresh (current)
+
+- The game now ticks at your monitor's refresh rate (up to 240 Hz), so 144/200/240 Hz screens get real high-fps movement, not blended 60
+- Auto graphics now keeps full resolution (up to 4K) and only lowers it a little (never below 70%) if your PC can't keep up with your monitor
+- Shadows redraw every other frame above 100 fps: looks the same, saves your graphics card work
+- Show FPS toggle in the pause menu puts a live fps counter on screen
+- Pause menu shows your fps, your screen's refresh rate and game tick rate
+
+## v0.17: Smooth Sailing
 
 - Fixed lag on gaming PCs with high-refresh monitors: the game logic now runs a steady 60 times a second, and drawing stays smooth in between
 - Blobs only check pellets near them, making each game tick about 15x cheaper
