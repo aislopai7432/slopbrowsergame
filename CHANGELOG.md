@@ -2,7 +2,17 @@
 
 Newest first.
 
-## v0.9: Fill the Box (current)
+## v0.10: Slow Consume (current)
+
+- Digestion: what you eat now absorbs into you gradually instead of all at once, so you swell steadily
+- Eaten blobs stay visible inside you, shrinking away as you digest them
+- Mass HUD shows how much you still have digesting
+- The ending is much slower: from half the box to a win takes around a minute and a half at best
+- Slower, bigger final swell when you fill the box
+- Pellet size bonus reduced (now up to 4x)
+- Bots can no longer grow bigger than the box
+
+## v0.9: Fill the Box
 
 - You now win by physically filling the whole box: grow as wide as the box and your blob swells into a giant jelly cube
 - Everything left in the box gets absorbed when you win

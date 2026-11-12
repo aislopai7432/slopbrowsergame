@@ -483,7 +483,12 @@ let cls = {...BASE_CLASS};
 const WIN_R = A;
 const WIN_MASS = Math.pow(WIN_R / 0.55, 2);
 // pellets are worth more to you as you grow, so the late game doesn't drag
-const playerPelletValue = () => 1 + Math.min(9, Math.floor(totalMass(me) / 400));
+const playerPelletValue = () => 1 + Math.min(3, Math.floor(totalMass(me) / 1500));
+// digestion: what you eat is absorbed gradually, at most this fraction of your mass per second,
+// so you swell steadily instead of jumping straight to full size
+const DIGEST_RATE = 0.015, DIGEST_MIN = 4;
+// add food to a cell: players digest it over time, bots absorb it at once
+function feed(c, amount) { if (c.owner.isPlayer) c.digest += amount; else c.mass += amount; }
 const canEat = (a, b) => {
   if (b.owner && b.owner.isPlayer) {
     if (cls.ghost && b.owner.boost > 0) return false;  // ghost: untouchable while boosting
@@ -553,7 +558,7 @@ function makeCell(owner, mass, x, y, z) {
   mesh.scale.setScalar(r);
   scene.add(mesh, label, gloss);
   const c = {owner, mass, mesh, label, gloss, r, alive: true, mergeT: 0,
-    pos: new THREE.Vector3(x, y, z), vel: new THREE.Vector3(), launch: new THREE.Vector3()};
+    pos: new THREE.Vector3(x, y, z), vel: new THREE.Vector3(), launch: new THREE.Vector3(), digest: 0};
   owner.cells.push(c); cells.push(c); return c;
 }
 
@@ -596,8 +601,9 @@ function split(o) {
   for (const c of [...o.cells]) {
     if (o.cells.length >= (o.isPlayer ? cls.maxCells : MAX_CELLS)) break;
     if (c.mass < MIN_SPLIT) continue;
-    c.mass /= 2; c.r = massToR(c.mass);
+    c.mass /= 2; c.digest /= 2; c.r = massToR(c.mass);
     const n = makeCell(o, c.mass, c.pos.x + d.x * c.r * 0.5, c.pos.y + d.y * c.r * 0.5, c.pos.z + d.z * c.r * 0.5);
+    n.digest = c.digest;
     n.mesh.scale.setScalar(c.r);
     n.launch.copy(d).multiplyScalar((28 + c.r * 3) * (o.isPlayer ? cls.splitLaunch : 1));
     n.vel.copy(c.vel);
@@ -788,6 +794,8 @@ const $ = id => document.getElementById(id);
 function clearWorld() {
   for (const c of cells) scene.remove(c.mesh, c.label, c.gloss);
   for (const e of ejecta) scene.remove(e.mesh);
+  for (const f of digestFx) scene.remove(f.mesh);
+  digestFx = [];
   owners = []; cells = []; ejecta = [];
 }
 
@@ -827,6 +835,7 @@ setDiff(diffKey);
 
 // ---------- patch notes (newest first; the first entry is the current version) ----------
 const PATCH_NOTES = [
+ {"v": "0.10", "title": "Slow Consume", "notes": ["Digestion: what you eat now absorbs into you gradually instead of all at once, so you swell steadily", "Eaten blobs stay visible inside you, shrinking away as you digest them", "Mass HUD shows how much you still have digesting", "The ending is much slower: from half the box to a win takes around a minute and a half at best", "Slower, bigger final swell when you fill the box", "Pellet size bonus reduced (now up to 4x)", "Bots can no longer grow bigger than the box"]},
  {
   "v": "0.9",
   "title": "Fill the Box",
@@ -1012,7 +1021,7 @@ function win() {
   $('winStats').textContent = `Mass ${Math.floor(totalMass(me))} · took ${Math.floor(time / 60)}m ${Math.floor(time % 60)}s`;
   $('winBest').textContent = bestText();
   $('vignette').style.opacity = 0;
-  setTimeout(() => { if (state === 'won') show('winMenu'); }, 2600);
+  setTimeout(() => { if (state === 'won') show('winMenu'); }, 5500);
 }
 
 let spectate = null;
@@ -1052,6 +1061,8 @@ function update(dt) {
   // --- move cells ---
   for (const c of cells) {
     const o = c.owner;
+    if (c.digest > 0) { const take = Math.min(c.digest, Math.max(DIGEST_MIN, c.mass * DIGEST_RATE) * dt); c.mass += take; c.digest -= take; }
+    if (!o.isPlayer) c.mass = Math.min(c.mass, WIN_MASS * 0.6); // bots can't outgrow the box
     c.r = massToR(c.mass);
     c.mergeT = Math.max(0, c.mergeT - dt);
     let sp = speedFor(c.r) * (o.boost > 0 ? 2.6 : 1) * (o.isPlayer ? cls.speed : 1);
@@ -1091,7 +1102,7 @@ function update(dt) {
       if (a.mergeT <= 0 && b.mergeT <= 0) {
         if (d < Math.max(a.r, b.r) * 0.9) { // merge smaller into larger
           const [big, small] = a.mass >= b.mass ? [a, b] : [b, a];
-          big.mass += small.mass; killCell(small);
+          big.mass += small.mass; big.digest += small.digest; killCell(small);
         }
       } else {
         const overlap = a.r + b.r - d;
@@ -1111,7 +1122,7 @@ function update(dt) {
     const reach = c.r + (c.owner.isPlayer ? cls.reach : BOT_PELLET_REACH), reach2 = reach * reach;
     for (let i = 0; i < N_PELLETS; i++) {
       const p = pelletPos[i], dx = p.x - c.pos.x, dy = p.y - c.pos.y, dz = p.z - c.pos.z;
-      if (dx * dx + dy * dy + dz * dz < reach2) { c.mass += c.owner.isPlayer ? pv : 1; placePellet(i); }
+      if (dx * dx + dy * dy + dz * dz < reach2) { feed(c, c.owner.isPlayer ? pv : 1); placePellet(i); }
     }
   }
 
@@ -1124,7 +1135,7 @@ function update(dt) {
     e.mesh.position.copy(e.pos);
     for (const c of cells) {
       if (c.owner === e.owner && e.age < 0.6) continue; // don't instantly re-eat your own drop
-      if (c.pos.distanceTo(e.pos) < c.r + e.r * (c.owner.isPlayer ? 2 : 0.5)) { c.mass += e.mass; e.dead = true; scene.remove(e.mesh); break; }
+      if (c.pos.distanceTo(e.pos) < c.r + e.r * (c.owner.isPlayer ? 2 : 0.5)) { feed(c, e.mass); e.dead = true; scene.remove(e.mesh); break; }
     }
     if (e.age > 60) { e.dead = true; scene.remove(e.mesh); }
   }
@@ -1137,7 +1148,8 @@ function update(dt) {
       if (b === a || !b.alive || b.owner === a.owner || !canEat(a, b)) continue;
       if (b.owner.isPlayer && a.spawnT !== undefined && time - a.spawnT < 2) continue; // 2s spawn grace
       if (a.pos.distanceTo(b.pos) < eatRange(a, b)) {
-        a.mass += b.mass; killCell(b);
+        feed(a, b.mass + b.digest); killCell(b);
+        if (a.owner.isPlayer) startDigestFx(b, a); // watch it shrink away inside you
         if (b.owner.cells.length === 0) b.owner.eatenBy = a.owner;
         if (b.owner.isPlayer && b.owner.cells.length === 0 && state === 'play') die(a.owner);
       }
@@ -1153,8 +1165,24 @@ function update(dt) {
   if (state === 'play' && me && me.alive && totalMass(me) >= WIN_MASS) win();
 }
 
+let digestFx = [];
+function startDigestFx(victim, eater) {
+  scene.add(victim.mesh); // keep the eaten blob's body around for a moment
+  digestFx.push({mesh: victim.mesh, eater, t: 0, dur: 1.5 + Math.min(3, victim.r / Math.max(1, eater.r) * 5), s0: victim.mesh.scale.clone()});
+}
+function updateDigestFx(dt) {
+  for (const f of digestFx) {
+    f.t += dt;
+    const k = Math.min(1, f.t / f.dur);
+    f.mesh.position.lerp(f.eater.pos, Math.min(1, dt * 1.5));
+    f.mesh.scale.copy(f.s0).multiplyScalar(Math.max(0.001, 1 - k));
+    if (k >= 1 || !f.eater.alive) { scene.remove(f.mesh); f.done = true; }
+  }
+  digestFx = digestFx.filter(f => !f.done);
+}
 const _up = new THREE.Vector3(), _right = new THREE.Vector3(), _toCam = new THREE.Vector3();
 function render3D(dt) {
+  updateDigestFx(dt);
   if (me && me.alive) me.mat.opacity = state === 'won' ? 0.75 : cls.ghost && me.boost > 0 ? 0.15 : 0.55;
   scene.fog.near = state === 'won' ? 400 : 110; scene.fog.far = state === 'won' ? 900 : 330;
   _up.set(0, 1, 0).applyQuaternion(camera.quaternion);
@@ -1162,7 +1190,7 @@ function render3D(dt) {
   for (const c of cells) {
     if (state === 'won' && c.owner === me) {
       const main = me.cells.reduce((a, b) => (b.mass > a.mass ? b : a));
-      const t = Math.min(1, dt * 2);
+      const t = Math.min(1, dt * 0.6); // slow, satisfying final swell
       c.mesh.position.lerp(new THREE.Vector3(0, H / 2, 0), t);
       c.mesh.scale.lerp(c === main ? new THREE.Vector3(A, H / 2, A) : new THREE.Vector3(0.01, 0.01, 0.01), t);
       c.label.position.set(c.mesh.position.x, H + 4, c.mesh.position.z);
@@ -1229,7 +1257,9 @@ function updateHUD(dt) {
   if ((hudT -= dt) > 0) return; hudT = 0.15;
   const sorted = owners.filter(o => o.alive).map(o => ({o, m: totalMass(o)})).sort((a, b) => b.m - a.m);
   const rank = sorted.findIndex(x => x.o === me) + 1;
-  $('mass').textContent = 'Mass ' + Math.floor(totalMass(me)) + (me.cells.length > 1 ? `  (${me.cells.length} cells)` : '');
+  const dig = me.cells.reduce((s, c) => s + c.digest, 0);
+  $('mass').innerHTML = 'Mass ' + Math.floor(totalMass(me)) + (dig >= 1 ? ` <span style="color:#1b8a1b;font-size:.7em">+${Math.floor(dig)} digesting</span>` : '')
+    + (me.cells.length > 1 ? `  <span style="font-size:.7em">(${me.cells.length} cells)</span>` : '');
   $('rank').textContent = `Rank ${rank} / ${sorted.length} · ${CLASSES[clsKey].icon} ${CLASSES[clsKey].name}`;
   $('boostfill').style.width = (100 * (1 - me.boostCd / cls.boostCd)) + '%';
   const fill = Math.min(1, massToR(totalMass(me)) / WIN_R); // how much of the box's width you span
