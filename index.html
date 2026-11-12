@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Blob Arena 3D</title>
+<style>
+  html,body{margin:0;height:100%;background:#070a14;overflow:hidden;font-family:system-ui,sans-serif;color:#fff;user-select:none}
+  canvas{display:block}
+  #hud{position:fixed;inset:0;pointer-events:none;padding:18px 22px;text-shadow:0 0 6px #000}
+  #mass{font-size:26px;font-weight:700}
+  #rank{font-size:15px;color:#fffb;margin-top:2px}
+  #boostbar{width:120px;height:6px;background:#fff2;margin-top:10px;border-radius:3px;overflow:hidden}
+  #boostfill{height:100%;background:#4cf;width:100%}
+  #lb{position:absolute;top:16px;right:18px;background:#0007;padding:10px 14px;border-radius:8px;min-width:170px;font-size:14px}
+  #lb h3{margin:0 0 6px;font-size:15px;text-align:center}
+  #lbrows>div{display:flex;justify-content:space-between;gap:12px}
+  #lb .me{color:#fd0;font-weight:700}
+  #menu{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#000a;text-align:center;cursor:pointer}
+  #menu h1{font-size:64px;margin:0;color:#4cf;text-shadow:0 0 30px #4cf}
+  #menu .sub{font-size:26px;margin:10px 0;min-height:30px}
+  #menu p{color:#fffc;margin:4px;font-size:17px}
+  #menu .go{color:#fd0;font-weight:700;font-size:22px;margin-top:22px}
+  .hidden{display:none!important}
+</style>
+</head>
+<body>
+<div id="hud" class="hidden">
+  <div id="mass">Mass 10</div>
+  <div id="rank"></div>
+  <div id="boostbar"><div id="boostfill"></div></div>
+  <div id="lb"><h3>Leaderboard</h3><div id="lbrows"></div></div>
+</div>
+<div id="menu">
+  <h1 id="title">BLOB ARENA 3D</h1>
+  <div class="sub" id="sub"></div>
+  <p>WASD / arrows to move · Mouse to steer the camera (click to lock)</p>
+  <p>Space or Shift to boost (costs a little mass)</p>
+  <p>Eat pellets to grow. Eat blobs smaller than you. Run from bigger ones.</p>
+  <div class="go" id="go">Click to play</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ---------- setup ----------
+const renderer = new THREE.WebGLRenderer({antialias: true});
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x070a14);
+scene.fog = new THREE.Fog(0x070a14, 60, 180);
+const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.1, 400);
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+scene.add(new THREE.HemisphereLight(0xaaccff, 0x221133, 0.7));
+const sun = new THREE.DirectionalLight(0xffffff, 0.8);
+sun.position.set(40, 80, 30); sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+scene.add(sun, sun.target);
+
+// ---------- arena ----------
+const A = 100; // half-size
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(A * 2, A * 2), new THREE.MeshStandardMaterial({color: 0x0e1224, roughness: 1}));
+floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+const grid = new THREE.GridHelper(A * 2, 50, 0x335577, 0x1a2540);
+grid.position.y = 0.02; scene.add(grid);
+const edgeMat = new THREE.MeshBasicMaterial({color: 0x44ccff});
+for (const [x, z, w, d] of [[0, -A, A * 2, 0.6], [0, A, A * 2, 0.6], [-A, 0, 0.6, A * 2], [A, 0, 0.6, A * 2]]) {
+  const e = new THREE.Mesh(new THREE.BoxGeometry(w, 1.2, d), edgeMat); e.position.set(x, 0.6, z); scene.add(e);
+}
+
+// ---------- pellets (instanced) ----------
+const N_PELLETS = 1500;
+const pellets = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.35, 0), new THREE.MeshStandardMaterial({emissive: 0x222222, roughness: 0.5}), N_PELLETS);
+const pelletPos = [];
+const tmpM = new THREE.Matrix4(), tmpC = new THREE.Color();
+function placePellet(i) {
+  const p = pelletPos[i] || (pelletPos[i] = new THREE.Vector3());
+  p.set((Math.random() * 2 - 1) * (A - 2), 0.4, (Math.random() * 2 - 1) * (A - 2));
+  tmpM.makeTranslation(p.x, p.y, p.z); pellets.setMatrixAt(i, tmpM);
+  pellets.setColorAt(i, tmpC.setHSL(Math.random(), 0.9, 0.6));
+  pellets.instanceMatrix.needsUpdate = true; pellets.instanceColor.needsUpdate = true;
+}
+for (let i = 0; i < N_PELLETS; i++) placePellet(i);
+scene.add(pellets);
+
+// ---------- blobs ----------
+const NAMES = ['Blobby', 'Gooey', 'Mochi', 'Squish', 'Jelly', 'Bubbles', 'Dumpling', 'Orbo', 'Plop', 'Wobble', 'Gumdrop', 'Splat',
+  'Noodle', 'Pudding', 'Marble', 'Boba', 'Pebble', 'Glorp', 'Sir Round', 'Big Chungus', 'Dot', 'Meatball', 'Slime King', 'Puff'];
+const N_BOTS = 24;
+const sphereGeo = new THREE.SphereGeometry(1, 32, 24);
+let blobs = [], me = null;
+
+const massToR = m => 0.55 * Math.sqrt(m);
+const speedFor = r => 15 / Math.pow(r, 0.42);
+
+function makeLabel(text) {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 64;
+  const g = c.getContext('2d');
+  g.font = 'bold 40px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.lineWidth = 6; g.strokeStyle = '#000'; g.strokeText(text, 128, 32);
+  g.fillStyle = '#fff'; g.fillText(text, 128, 32);
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({map: new THREE.CanvasTexture(c), depthWrite: false}));
+  s.scale.set(4, 1, 1); return s;
+}
+
+function makeBlob(name, mass, isPlayer) {
+  const hue = isPlayer ? 0.53 : Math.random();
+  const mat = new THREE.MeshStandardMaterial({color: new THREE.Color().setHSL(hue, 0.75, 0.55),
+    emissive: new THREE.Color().setHSL(hue, 0.8, 0.15), roughness: 0.35, metalness: 0.1});
+  const mesh = new THREE.Mesh(sphereGeo, mat); mesh.castShadow = true;
+  const label = makeLabel(name);
+  scene.add(mesh, label);
+  const b = {name, mass, mesh, label, isPlayer, pos: new THREE.Vector3(), vel: new THREE.Vector3(), dir: new THREE.Vector3(),
+    r: massToR(mass), alive: true, boost: 0, boostCd: 0, think: 0, wobble: Math.random() * 10};
+  b.pos.set((Math.random() * 2 - 1) * (A - 10), 0, (Math.random() * 2 - 1) * (A - 10));
+  blobs.push(b); return b;
+}
+
+function removeBlob(b) { b.alive = false; scene.remove(b.mesh, b.label); }
+
+function spawnBot() {
+  const used = new Set(blobs.filter(b => b.alive).map(b => b.name));
+  const free = NAMES.filter(n => !used.has(n));
+  const name = free.length ? free[Math.floor(Math.random() * free.length)] : 'Blob' + Math.floor(Math.random() * 99);
+  const b = makeBlob(name, 8 + Math.random() * (Math.random() < 0.2 ? 120 : 30), false);
+  // don't spawn on top of the player
+  if (me && b.pos.distanceTo(me.pos) < 25) b.pos.x = -b.pos.x, b.pos.z = -b.pos.z;
+  return b;
+}
+
+// ---------- bot AI ----------
+function think(b) {
+  let threat = null, threatD = 1e9, prey = null, preyScore = -1;
+  for (const o of blobs) {
+    if (o === b || !o.alive) continue;
+    const d = b.pos.distanceTo(o.pos) - o.r - b.r;
+    if (o.r > b.r * 1.15 && d < 18 + o.r && d < threatD) { threat = o; threatD = d; }
+    else if (b.r > o.r * 1.15 && d < 30) { const s = o.mass / (d + 5); if (s > preyScore) { preyScore = s; prey = o; } }
+  }
+  if (threat) {
+    b.dir.subVectors(b.pos, threat.pos).setY(0).normalize();
+    // steer away from walls while fleeing
+    if (Math.abs(b.pos.x) > A - 12) b.dir.x -= Math.sign(b.pos.x);
+    if (Math.abs(b.pos.z) > A - 12) b.dir.z -= Math.sign(b.pos.z);
+    b.dir.normalize();
+    if (threatD < 6 && b.boostCd <= 0 && Math.random() < 0.5) boost(b);
+  } else if (prey) {
+    b.dir.subVectors(prey.pos, b.pos).setY(0).normalize();
+    if (b.pos.distanceTo(prey.pos) < b.r + 8 && b.boostCd <= 0 && Math.random() < 0.3) boost(b);
+  } else {
+    // go to nearest pellet
+    let best = null, bd = 1e9;
+    for (let i = 0; i < N_PELLETS; i += 3) { const d = pelletPos[i].distanceToSquared(b.pos); if (d < bd) { bd = d; best = pelletPos[i]; } }
+    if (best) b.dir.subVectors(best, b.pos).setY(0).normalize();
+  }
+  b.think = 0.2 + Math.random() * 0.25;
+}
+
+function boost(b) {
+  if (b.boostCd > 0 || b.mass < 14) return;
+  b.boost = 0.35; b.boostCd = 2.5; b.mass *= 0.94;
+}
+
+// ---------- input ----------
+const keys = {};
+let yaw = Math.PI, pitch = 0.6, locked = false, dragging = false;
+addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (e.code === 'Space') { e.preventDefault(); if (state !== 'play') start(); else boost(me); }
+  if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') boost(me);
+});
+addEventListener('keyup', e => keys[e.code] = false);
+renderer.domElement.addEventListener('mousedown', () => {
+  if (state !== 'play') return;
+  if (!locked) { renderer.domElement.requestPointerLock?.(); dragging = true; }
+});
+addEventListener('mouseup', () => dragging = false);
+document.addEventListener('pointerlockchange', () => locked = document.pointerLockElement === renderer.domElement);
+addEventListener('mousemove', e => {
+  if (!locked && !dragging) return;
+  yaw -= e.movementX * 0.0028;
+  pitch = Math.max(0.15, Math.min(1.35, pitch + e.movementY * 0.0022));
+});
+document.getElementById('menu').addEventListener('click', start);
+
+function playerDir() {
+  let f = 0, s = 0;
+  if (keys.KeyW || keys.ArrowUp) f += 1;
+  if (keys.KeyS || keys.ArrowDown) f -= 1;
+  if (keys.KeyD || keys.ArrowRight) s += 1;
+  if (keys.KeyA || keys.ArrowLeft) s -= 1;
+  const v = new THREE.Vector3(-Math.sin(yaw) * f + Math.cos(yaw) * s, 0, -Math.cos(yaw) * f - Math.sin(yaw) * s);
+  return v.lengthSq() ? v.normalize() : v;
+}
+
+// ---------- game ----------
+let state = 'menu', time = 0, peak = 0;
+let best = 0; try { best = +localStorage.getItem('blob3d_best') || 0; } catch (e) {}
+const $ = id => document.getElementById(id);
+
+function start() {
+  for (const b of blobs) if (b.alive) removeBlob(b);
+  blobs = [];
+  me = makeBlob('You', 10, true);
+  me.pos.set(0, 0, 0);
+  for (let i = 0; i < N_BOTS; i++) spawnBot();
+  time = 0; peak = 10; yaw = Math.PI; pitch = 0.6;
+  state = 'play';
+  $('menu').classList.add('hidden'); $('hud').classList.remove('hidden');
+  renderer.domElement.requestPointerLock?.();
+}
+
+function die(killer) {
+  state = 'over';
+  peak = Math.max(peak, me.mass);
+  if (peak > best) { best = Math.floor(peak); try { localStorage.setItem('blob3d_best', best); } catch (e) {} }
+  document.exitPointerLock?.();
+  $('title').textContent = 'EATEN!';
+  $('sub').textContent = `${killer.name} ate you · Peak mass ${Math.floor(peak)} · Best ${best}`;
+  $('go').textContent = 'Click or press Space to play again';
+  setTimeout(() => { $('menu').classList.remove('hidden'); $('hud').classList.add('hidden'); }, 900);
+}
+
+function update(dt) {
+  time += dt;
+  const alive = blobs.filter(b => b.alive);
+
+  for (const b of alive) {
+    b.boostCd = Math.max(0, b.boostCd - dt);
+    if (b.isPlayer) { if (state === 'play') b.dir.copy(playerDir()); }
+    else if ((b.think -= dt) <= 0) think(b);
+
+    b.r = massToR(b.mass);
+    let sp = speedFor(b.r);
+    if (b.boost > 0) { b.boost -= dt; sp *= 2.6; }
+    const targetVel = b.dir.clone().multiplyScalar(sp);
+    b.vel.lerp(targetVel, Math.min(1, dt * (b.boost > 0 ? 10 : 5)));
+    b.pos.addScaledVector(b.vel, dt);
+    const lim = A - b.r * 0.6;
+    b.pos.x = Math.max(-lim, Math.min(lim, b.pos.x));
+    b.pos.z = Math.max(-lim, Math.min(lim, b.pos.z));
+    // slow mass decay for big blobs
+    if (b.mass > 60) b.mass -= b.mass * 0.004 * dt;
+  }
+
+  // eat pellets
+  for (const b of alive) {
+    const reach = b.r + 0.35, reach2 = reach * reach;
+    for (let i = 0; i < N_PELLETS; i++) {
+      const p = pelletPos[i], dx = p.x - b.pos.x, dz = p.z - b.pos.z;
+      if (dx * dx + dz * dz < reach2) { b.mass += 1; placePellet(i); }
+    }
+  }
+
+  // eat each other
+  for (const a of alive) {
+    if (!a.alive) continue;
+    for (const o of alive) {
+      if (o === a || !o.alive || !a.alive) continue;
+      if (a.r > o.r * 1.15 && a.pos.distanceTo(o.pos) < a.r - o.r * 0.4) {
+        a.mass += o.mass * 0.9;
+        removeBlob(o);
+        if (o.isPlayer) die(a);
+      }
+    }
+  }
+  blobs = blobs.filter(b => b.alive);
+  while (blobs.filter(b => !b.isPlayer).length < N_BOTS) spawnBot();
+  if (me && me.alive) peak = Math.max(peak, me.mass);
+}
+
+function render3D(dt) {
+  for (const b of blobs) {
+    b.r = massToR(b.mass);
+    b.wobble += dt * 6;
+    const sq = 1 + Math.sin(b.wobble) * 0.03;
+    const shown = b.mesh.scale.x + (b.r - b.mesh.scale.x) * Math.min(1, dt * 8); // smooth growth
+    b.mesh.scale.set(shown / Math.sqrt(sq), shown * sq, shown / Math.sqrt(sq));
+    b.mesh.position.set(b.pos.x, shown * sq, b.pos.z);
+    b.label.position.set(b.pos.x, shown * 2 + 1 + shown * 0.15, b.pos.z);
+    const ls = 3 + shown * 0.9; b.label.scale.set(ls, ls / 4, 1);
+  }
+}
+
+// ---------- camera ----------
+const camFocus = new THREE.Vector3();
+let camDist = 14;
+function updateCamera(dt) {
+  const target = me && me.alive ? me : blobs.reduce((a, b) => (b.mass > a.mass ? b : a), blobs[0]);
+  if (!target) return;
+  const r = target.mesh.scale.x;
+  camDist += ((10 + r * 3.2) - camDist) * Math.min(1, dt * 3);
+  camFocus.lerp(new THREE.Vector3(target.pos.x, r * 1.2, target.pos.z), Math.min(1, dt * 10));
+  camera.position.set(
+    camFocus.x + Math.sin(yaw) * Math.cos(pitch) * camDist,
+    camFocus.y + Math.sin(pitch) * camDist,
+    camFocus.z + Math.cos(yaw) * Math.cos(pitch) * camDist);
+  camera.lookAt(camFocus);
+  // keep the shadow area centered on the action
+  sun.position.set(camFocus.x + 40, 80, camFocus.z + 30); sun.target.position.copy(camFocus);
+  const sc = 40 + r * 4;
+  Object.assign(sun.shadow.camera, {left: -sc, right: sc, top: sc, bottom: -sc, near: 1, far: 200});
+  sun.shadow.camera.updateProjectionMatrix();
+}
+
+let hudT = 0;
+function updateHUD(dt) {
+  if ((hudT -= dt) > 0) return; hudT = 0.15;
+  const sorted = [...blobs].sort((a, b) => b.mass - a.mass);
+  const rank = sorted.indexOf(me) + 1;
+  $('mass').textContent = 'Mass ' + Math.floor(me.mass);
+  $('rank').textContent = `Rank ${rank} / ${sorted.length}`;
+  $('boostfill').style.width = (100 * (1 - me.boostCd / 2.5)) + '%';
+  let html = sorted.slice(0, 8).map((b, i) => `<div class="${b.isPlayer ? 'me' : ''}"><span>${i + 1}. ${b.name}</span><span>${Math.floor(b.mass)}</span></div>`).join('');
+  if (rank > 8) html += `<div class="me"><span>${rank}. You</span><span>${Math.floor(me.mass)}</span></div>`;
+  $('lbrows').innerHTML = html;
+}
+
+// ---------- loop ----------
+// title screen: bots play on their own in the background
+for (let i = 0; i < N_BOTS; i++) spawnBot();
+$('sub').textContent = best ? 'Best mass ' + best : '';
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.033, (now - last) / 1000); last = now;
+  update(dt);
+  if (state === 'play') updateHUD(dt);
+  else yaw += dt * 0.15;
+  render3D(dt);
+  updateCamera(dt);
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
