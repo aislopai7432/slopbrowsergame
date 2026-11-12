@@ -5,53 +5,74 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 <title>Blob Arena 3D</title>
 <style>
-  html,body{margin:0;height:100%;background:#070a14;overflow:hidden;font-family:system-ui,sans-serif;color:#fff;user-select:none}
+  :root{--ink:#0b3a5c}
+  html,body{margin:0;height:100%;background:#8fd3ff;overflow:hidden;font-family:"Segoe UI","Frutiger","Frutiger Linotype","Myriad Pro",system-ui,sans-serif;color:var(--ink);user-select:none}
   canvas{display:block}
-  #hud{position:fixed;inset:0;pointer-events:none;padding:18px 22px;text-shadow:0 0 6px #000}
-  #mass{font-size:26px;font-weight:700}
-  #rank{font-size:15px;color:#fffb;margin-top:2px}
-  #boostbar{width:120px;height:6px;background:#fff2;margin-top:10px;border-radius:3px;overflow:hidden}
-  #boostfill{height:100%;background:#4cf;width:100%}
-  #keys{position:absolute;left:22px;bottom:16px;font-size:13px;color:#fff9}
-  #lb{position:absolute;top:16px;right:18px;background:#0007;padding:10px 14px;border-radius:8px;min-width:170px;font-size:14px}
-  #lb h3{margin:0 0 6px;font-size:15px;text-align:center}
-  #lbrows>div{display:flex;justify-content:space-between;gap:12px}
-  #lb .me{color:#fd0;font-weight:700}
-  .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(#0008,#000c);padding:16px;box-sizing:border-box}
-  .panel{background:#0d1428ee;border:1px solid #4cf5;border-radius:16px;padding:28px 32px;width:100%;max-width:420px;text-align:center;box-shadow:0 0 50px #4cf3}
-  .panel h1{font-size:46px;margin:0 0 4px;color:#4cf;text-shadow:0 0 24px #4cf;line-height:1}
-  .panel h2{font-size:34px;margin:0 0 10px;color:#4cf}
-  .panel .tag{color:#fff9;margin-bottom:20px}
-  .panel label{display:block;text-align:left;font-size:13px;color:#fffa;margin:14px 0 6px;text-transform:uppercase;letter-spacing:1px}
-  .panel input{width:100%;box-sizing:border-box;padding:11px 12px;border-radius:8px;border:1px solid #fff3;background:#0006;color:#fff;font-size:17px;outline:none}
-  .panel input:focus{border-color:#4cf}
-  .swatches{display:flex;gap:8px;flex-wrap:wrap}
-  .swatch{width:34px;height:34px;border-radius:50%;cursor:pointer;border:3px solid transparent;box-sizing:border-box}
-  .swatch.sel{border-color:#fff;box-shadow:0 0 12px #fff8}
+  .glass{background:linear-gradient(180deg,rgba(255,255,255,.78) 0%,rgba(255,255,255,.42) 48%,rgba(255,255,255,.24) 52%,rgba(255,255,255,.45) 100%);
+    border:1px solid rgba(255,255,255,.95);box-shadow:0 10px 30px rgba(0,70,140,.22),inset 0 1px 0 #fff,inset 0 -2px 10px rgba(255,255,255,.6);
+    backdrop-filter:blur(14px) saturate(1.5);-webkit-backdrop-filter:blur(14px) saturate(1.5)}
+  #hud{position:fixed;inset:0;pointer-events:none;padding:16px 18px}
+  #stats{display:inline-block;padding:10px 20px 12px;border-radius:20px;min-width:150px}
+  #mass{font-size:26px;font-weight:600}
+  #rank{font-size:14px;opacity:.75;margin-top:1px}
+  #boostbar{width:140px;height:9px;background:rgba(0,60,120,.15);margin-top:9px;border-radius:9px;overflow:hidden;box-shadow:inset 0 1px 2px rgba(0,40,80,.3)}
+  #boostfill{height:100%;width:100%;border-radius:9px;background:linear-gradient(180deg,#bff0ff 0%,#5cc8f5 49%,#2aa6e6 50%,#6fd6ff 100%)}
+  #keys{position:absolute;left:18px;bottom:14px;font-size:13px;padding:7px 14px;border-radius:999px}
+  #lb{position:absolute;top:16px;right:18px;padding:12px 16px;border-radius:20px;min-width:180px;font-size:14px}
+  #lb h3{margin:0 0 6px;font-size:15px;text-align:center;font-weight:600;letter-spacing:.5px}
+  #lbrows>div{display:flex;justify-content:space-between;gap:12px;padding:1px 0}
+  #lb .me{color:#1b8a1b;font-weight:700}
+  .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;
+    background:radial-gradient(ellipse at center,rgba(255,255,255,.15),rgba(90,180,240,.35))}
+  .panel{border-radius:26px;padding:28px 32px;width:100%;max-width:420px;text-align:center;position:relative;overflow:hidden}
+  .panel::before{content:"";position:absolute;left:-20%;top:-60%;width:140%;height:95%;border-radius:50%;
+    background:linear-gradient(180deg,rgba(255,255,255,.7),rgba(255,255,255,0));pointer-events:none}
+  .panel>*{position:relative}
+  .panel h1{font-size:46px;margin:0 0 4px;line-height:1.05;font-weight:300;letter-spacing:1px;
+    background:linear-gradient(180deg,#59ccff 0%,#1c8fe0 55%,#0a5fb0 100%);-webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(0 2px 0 #fff) drop-shadow(0 4px 10px rgba(0,90,180,.3))}
+  .panel h1 b{font-weight:700}
+  .panel h2{font-size:34px;margin:0 0 10px;font-weight:300;color:#1477c4}
+  .panel .tag{opacity:.75;margin-bottom:18px}
+  .panel label{display:block;text-align:left;font-size:12px;opacity:.7;margin:14px 0 6px;text-transform:uppercase;letter-spacing:1.5px;font-weight:600}
+  .panel input{width:100%;box-sizing:border-box;padding:11px 14px;border-radius:999px;border:1px solid rgba(0,90,160,.3);background:linear-gradient(#f4fbff,#fff);
+    color:var(--ink);font:inherit;font-size:17px;outline:none;box-shadow:inset 0 2px 4px rgba(0,50,100,.15)}
+  .panel input:focus{border-color:#2aa6e6;box-shadow:inset 0 2px 4px rgba(0,50,100,.15),0 0 0 3px rgba(80,190,255,.35)}
+  .swatches{display:flex;gap:8px;flex-wrap:wrap;justify-content:space-between}
+  .swatch{width:36px;height:36px;border-radius:50%;cursor:pointer;border:2px solid rgba(255,255,255,.9);box-sizing:border-box;
+    box-shadow:0 2px 6px rgba(0,50,100,.3);transition:transform .15s}
+  .swatch.sel{transform:scale(1.18);box-shadow:0 0 0 3px #2aa6e6,0 3px 10px rgba(0,80,160,.4)}
   .seg{display:flex;gap:6px}
-  .seg button{flex:1;margin:0;padding:9px;font-size:15px;background:#fff1;color:#fffc}
-  .seg button.sel{background:#4cf;color:#001}
-  button{font:inherit;cursor:pointer;border:none;border-radius:10px;padding:13px;font-size:18px;font-weight:700;width:100%;margin-top:10px;background:#fff1;color:#fff}
-  button:hover{filter:brightness(1.2)}
-  button.primary{background:#fd0;color:#221;margin-top:22px;font-size:21px}
-  .best{margin-top:14px;color:#fd0a;font-size:14px}
-  .howto{text-align:left;line-height:1.7;color:#fffd;font-size:15px}
-  .howto b{color:#4cf;display:inline-block;min-width:92px}
+  .seg button{flex:1;margin:0;padding:9px;font-size:15px}
+  button{font:inherit;cursor:pointer;border-radius:999px;padding:12px;font-size:18px;font-weight:600;width:100%;margin-top:10px;color:var(--ink);
+    border:1px solid rgba(0,80,140,.3);background:linear-gradient(180deg,#ffffff 0%,#eef8ff 48%,#d3ecfb 52%,#eef9ff 100%);
+    box-shadow:0 2px 6px rgba(0,60,120,.18),inset 0 1px 0 #fff;transition:filter .15s,transform .1s}
+  button:hover{filter:brightness(1.06) saturate(1.2)}
+  button:active{transform:translateY(1px)}
+  .seg button.sel,#howBack,#resumeBtn{color:#fff;text-shadow:0 1px 2px rgba(0,60,120,.6);border-color:#1b86c9;
+    background:linear-gradient(180deg,#c4f1ff 0%,#5cc8f5 48%,#2299dd 52%,#5fd0ff 100%)}
+  button.primary{margin-top:22px;font-size:22px;padding:14px;color:#fff;text-shadow:0 1px 2px rgba(0,70,0,.55);border-color:#4b9b1c;
+    background:linear-gradient(180deg,#d4fb9c 0%,#8fdc45 48%,#5cb81e 52%,#93e64f 100%);box-shadow:0 4px 14px rgba(40,120,0,.35),inset 0 1px 0 #f6ffe8}
+  .best{margin-top:14px;color:#1b8a1b;font-size:14px;font-weight:600}
+  .howto{text-align:left;line-height:1.75;font-size:15px}
+  .howto b{color:#1477c4;display:inline-block;min-width:92px}
   .stat{font-size:20px;margin:6px 0}
   .hidden{display:none!important}
 </style>
 </head>
 <body>
 <div id="hud" class="hidden">
-  <div id="mass">Mass 10</div>
-  <div id="rank"></div>
-  <div id="boostbar"><div id="boostfill"></div></div>
-  <div id="keys">WASD move · Mouse look · Space split · E drop mass · Shift boost</div>
-  <div id="lb"><h3>Leaderboard</h3><div id="lbrows"></div></div>
+  <div id="stats" class="glass">
+    <div id="mass">Mass 10</div>
+    <div id="rank"></div>
+    <div id="boostbar"><div id="boostfill"></div></div>
+  </div>
+  <div id="keys" class="glass">WASD move · Mouse look · Space split · E drop mass · Shift boost</div>
+  <div id="lb" class="glass"><h3>Leaderboard</h3><div id="lbrows"></div></div>
 </div>
 <div id="mainMenu" class="overlay">
-  <div class="panel">
-    <h1>BLOB ARENA 3D</h1>
+  <div class="panel glass">
+    <h1><b>Blob</b> Arena 3D</h1>
     <div class="tag">Eat. Grow. Don't get eaten.</div>
     <label for="nameIn">Name</label>
     <input id="nameIn" maxlength="14" placeholder="You" autocomplete="off">
@@ -67,7 +88,7 @@
   </div>
 </div>
 <div id="howMenu" class="overlay hidden">
-  <div class="panel">
+  <div class="panel glass">
     <h2>How to play</h2>
     <div class="howto">
       <div><b>WASD</b> Move (relative to camera)</div>
@@ -82,14 +103,14 @@
   </div>
 </div>
 <div id="pauseMenu" class="overlay hidden">
-  <div class="panel">
+  <div class="panel glass">
     <h2>Paused</h2>
     <button class="primary" id="resumeBtn">Resume</button>
     <button id="quitBtn">Main menu</button>
   </div>
 </div>
 <div id="overMenu" class="overlay hidden">
-  <div class="panel">
+  <div class="panel glass">
     <h2>EATEN!</h2>
     <div class="stat" id="overKiller"></div>
     <div class="stat" id="overPeak"></div>
@@ -106,44 +127,175 @@ const renderer = new THREE.WebGLRenderer({antialias: true});
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x070a14);
-scene.fog = new THREE.Fog(0x070a14, 60, 180);
-const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.1, 400);
+scene.fog = new THREE.Fog(0xd6f1ff, 110, 330);
+const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.1, 700);
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
 });
 
-scene.add(new THREE.HemisphereLight(0xaaccff, 0x221133, 0.7));
-const sun = new THREE.DirectionalLight(0xffffff, 0.8);
+// ---------- sky ----------
+const skyMat = new THREE.ShaderMaterial({
+  side: THREE.BackSide, depthWrite: false, fog: false,
+  vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader: `varying vec3 vP;
+    void main(){
+      float h = vP.y;
+      vec3 top = vec3(0.10, 0.52, 0.92), mid = vec3(0.45, 0.80, 0.99), hor = vec3(0.90, 0.97, 1.0), gnd = vec3(0.55, 0.82, 0.55);
+      vec3 c = h > 0.0 ? mix(mix(hor, mid, smoothstep(0.0, 0.22, h)), top, smoothstep(0.22, 0.95, h)) : mix(hor, gnd, smoothstep(0.0, -0.2, h));
+      gl_FragColor = vec4(c, 1.0);
+    }`});
+const sky = new THREE.Mesh(new THREE.SphereGeometry(600, 32, 16), skyMat);
+scene.add(sky);
+
+// glossy reflections: paint a small sky cube map (gradient + sun + soft clouds) for the shiny materials
+function makeEnvCube() {
+  const N = 128, sunDir = new THREE.Vector3(0.5, 0.7, 0.3).normalize();
+  const skyCol = y => {
+    const lerp = (a, b, t) => a.map((v, i) => v + (b[i] - v) * Math.max(0, Math.min(1, t)));
+    if (y < 0) return lerp([230, 247, 255], [110, 190, 90], -y * 5);
+    return y < 0.22 ? lerp([230, 247, 255], [115, 204, 252], y / 0.22) : lerp([115, 204, 252], [26, 133, 235], (y - 0.22) / 0.73);
+  };
+  const faces = [
+    (u, v) => [1, -v, -u], (u, v) => [-1, -v, u], (u, v) => [u, 1, v],
+    (u, v) => [u, -1, -v], (u, v) => [u, -v, 1], (u, v) => [-u, -v, -1]];
+  const cloudDirs = [];
+  for (let i = 0; i < 10; i++) { const a = Math.random() * 6.28; cloudDirs.push(new THREE.Vector3(Math.cos(a), 0.15 + Math.random() * 0.3, Math.sin(a)).normalize()); }
+  const canvases = faces.map(f => {
+    const c = document.createElement('canvas'); c.width = c.height = N;
+    const g = c.getContext('2d'), img = g.createImageData(N, N), d = new THREE.Vector3();
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      d.set(...f((x + 0.5) / N * 2 - 1, (y + 0.5) / N * 2 - 1)).normalize();
+      let [r, gg, b] = skyCol(d.y);
+      let w = Math.pow(Math.max(0, d.dot(sunDir)), 60) * 1.2;           // sun hotspot
+      for (const cd of cloudDirs) w += Math.pow(Math.max(0, d.dot(cd)), 120) * 0.8; // white clouds
+      w = Math.min(1, w);
+      const i = (y * N + x) * 4;
+      img.data[i] = r + (255 - r) * w; img.data[i + 1] = gg + (255 - gg) * w; img.data[i + 2] = b + (255 - b) * w; img.data[i + 3] = 255;
+    }
+    g.putImageData(img, 0, 0); return c;
+  });
+  const tex = new THREE.CubeTexture(canvases);
+  tex.needsUpdate = true; return tex;
+}
+scene.environment = makeEnvCube();
+
+scene.add(new THREE.HemisphereLight(0xcdeeff, 0x6fbf4a, 0.75));
+const sun = new THREE.DirectionalLight(0xfff3dc, 1.0);
 sun.position.set(40, 80, 30); sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.radius = 4;
 scene.add(sun, sun.target);
 
-// ---------- arena ----------
-const A = 100; // half-size
-const floor = new THREE.Mesh(new THREE.PlaneGeometry(A * 2, A * 2), new THREE.MeshStandardMaterial({color: 0x0e1224, roughness: 1}));
-floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
-const grid = new THREE.GridHelper(A * 2, 50, 0x335577, 0x1a2540);
-grid.position.y = 0.02; scene.add(grid);
-const edgeMat = new THREE.MeshBasicMaterial({color: 0x44ccff});
-for (const [x, z, w, d] of [[0, -A, A * 2, 0.6], [0, A, A * 2, 0.6], [-A, 0, 0.6, A * 2], [A, 0, 0.6, A * 2]]) {
-  const e = new THREE.Mesh(new THREE.BoxGeometry(w, 1.2, d), edgeMat); e.position.set(x, 0.6, z); scene.add(e);
+function canvasTex(w, h, draw) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  draw(c.getContext('2d'), w, h); return new THREE.CanvasTexture(c);
 }
 
-// ---------- pellets (instanced) ----------
+// sun glow
+const sunGlow = new THREE.Sprite(new THREE.SpriteMaterial({fog: false, depthWrite: false, transparent: true, blending: THREE.AdditiveBlending,
+  map: canvasTex(256, 256, (g, w) => {
+    const r = g.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2);
+    r.addColorStop(0, 'rgba(255,255,240,1)'); r.addColorStop(0.15, 'rgba(255,250,220,0.8)');
+    r.addColorStop(0.4, 'rgba(255,240,200,0.18)'); r.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = r; g.fillRect(0, 0, w, w);
+  })}));
+sunGlow.scale.set(180, 180, 1); scene.add(sunGlow);
+
+// fluffy clouds
+const cloudTex = canvasTex(256, 128, (g, w, h) => {
+  for (let i = 0; i < 14; i++) {
+    const x = 40 + Math.random() * (w - 80), y = h * 0.55 + (Math.random() - 0.5) * 30, r = 22 + Math.random() * 26;
+    const grd = g.createRadialGradient(x, y - r * 0.3, 0, x, y, r);
+    grd.addColorStop(0, 'rgba(255,255,255,1)'); grd.addColorStop(0.7, 'rgba(250,253,255,0.9)'); grd.addColorStop(1, 'rgba(240,248,255,0)');
+    g.fillStyle = grd; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+  }
+});
+const clouds = [];
+for (let i = 0; i < 26; i++) {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({map: cloudTex, fog: false, depthWrite: false, transparent: true, opacity: 0.92}));
+  const a = Math.random() * Math.PI * 2, r = 260 + Math.random() * 220;
+  s.position.set(Math.cos(a) * r, 50 + Math.random() * 130, Math.sin(a) * r);
+  const sc = 90 + Math.random() * 90; s.scale.set(sc, sc / 2, 1);
+  scene.add(s); clouds.push({s, a, r, sp: 0.004 + Math.random() * 0.006});
+}
+
+// ---------- landscape ----------
+const A = 100; // half-size
+const grassTex = canvasTex(512, 512, (g, w) => {
+  g.fillStyle = '#7fd65a'; g.fillRect(0, 0, w, w);
+  for (let i = 0; i < 70; i++) {
+    const x = Math.random() * w, y = Math.random() * w, r = 30 + Math.random() * 90;
+    const grd = g.createRadialGradient(x, y, 0, x, y, r);
+    const light = Math.random() < 0.5;
+    grd.addColorStop(0, light ? 'rgba(200,255,150,0.35)' : 'rgba(60,160,60,0.25)'); grd.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = grd; g.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+});
+grassTex.wrapS = grassTex.wrapT = THREE.RepeatWrapping; grassTex.repeat.set(4, 4);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(A * 2, A * 2),
+  new THREE.MeshStandardMaterial({map: grassTex, roughness: 0.55, envMapIntensity: 0.6}));
+floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+const outer = new THREE.Mesh(new THREE.CircleGeometry(700, 64), new THREE.MeshStandardMaterial({color: 0x5fb847, roughness: 0.8}));
+outer.rotation.x = -Math.PI / 2; outer.position.y = -0.05; scene.add(outer);
+const grid = new THREE.GridHelper(A * 2, 50, 0xffffff, 0xffffff);
+grid.material.transparent = true; grid.material.opacity = 0.18; grid.position.y = 0.02; scene.add(grid);
+
+// glass rails around the arena
+const glassMat = new THREE.MeshPhysicalMaterial({color: 0xdff6ff, roughness: 0.05, metalness: 0, clearcoat: 1, transparent: true, opacity: 0.4, envMapIntensity: 1.5});
+const railMat = new THREE.MeshPhysicalMaterial({color: 0x4fc3f7, roughness: 0.1, clearcoat: 1, envMapIntensity: 1.5});
+for (const [x, z, w, d] of [[0, -A, A * 2, 0.5], [0, A, A * 2, 0.5], [-A, 0, 0.5, A * 2], [A, 0, 0.5, A * 2]]) {
+  const e = new THREE.Mesh(new THREE.BoxGeometry(w, 2, d), glassMat); e.position.set(x, 1, z); scene.add(e);
+  const t = new THREE.Mesh(new THREE.BoxGeometry(w + 0.4, 0.35, d + 0.4), railMat); t.position.set(x, 2.1, z); scene.add(t);
+}
+
+// rolling green hills on the horizon
+const hillMat = new THREE.MeshStandardMaterial({color: 0x6fcf4f, roughness: 0.5, envMapIntensity: 0.8});
+for (let i = 0; i < 22; i++) {
+  const a = i / 22 * Math.PI * 2 + Math.random() * 0.2, r = 330 + Math.random() * 120, s = 45 + Math.random() * 50;
+  const h = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 16), hillMat);
+  h.scale.set(s * 1.8, s * (0.18 + Math.random() * 0.17), s); h.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
+  h.rotation.y = -a; scene.add(h);
+}
+
+// drifting soap bubbles
+const bubbleMat = new THREE.MeshPhysicalMaterial({color: 0xffffff, roughness: 0, metalness: 0.1, clearcoat: 1, transparent: true, opacity: 0.22, envMapIntensity: 2.5, depthWrite: false});
+const bubbles = [];
+for (let i = 0; i < 45; i++) {
+  const m = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), bubbleMat);
+  m.scale.setScalar(0.4 + Math.random() * 1.4); scene.add(m);
+  bubbles.push({m, sp: 1 + Math.random() * 2, ph: Math.random() * 6, reset: true});
+}
+function updateScenery(dt, focus) {
+  sky.position.copy(camera.position);
+  sunGlow.position.copy(camera.position).add(new THREE.Vector3(250, 300, 150));
+  for (const c of clouds) { c.a += c.sp * dt; c.s.position.x = Math.cos(c.a) * c.r; c.s.position.z = Math.sin(c.a) * c.r; }
+  for (const b of bubbles) {
+    if (b.reset || b.m.position.y > 40 || b.m.position.distanceTo(focus) > 90) {
+      b.m.position.set(focus.x + (Math.random() - 0.5) * 140, b.reset ? Math.random() * 40 : -2, focus.z + (Math.random() - 0.5) * 140);
+      b.reset = false;
+    }
+    b.ph += dt; b.m.position.y += b.sp * dt; b.m.position.x += Math.sin(b.ph) * dt * 0.6;
+  }
+}
+
+// ---------- pellets (instanced, glossy) ----------
 const N_PELLETS = 1500;
-const pellets = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.35, 0), new THREE.MeshStandardMaterial({emissive: 0x222222, roughness: 0.5}), N_PELLETS);
+const PELLET_HUES = [0.5, 0.55, 0.58, 0.3, 0.36, 0.14, 0.08, 0.9, 0.78];
+const pellets = new THREE.InstancedMesh(new THREE.SphereGeometry(0.38, 12, 8),
+  new THREE.MeshPhysicalMaterial({roughness: 0.1, clearcoat: 1, envMapIntensity: 1.4}), N_PELLETS);
+pellets.castShadow = true;
 const pelletPos = [];
 const tmpM = new THREE.Matrix4(), tmpC = new THREE.Color();
 function placePellet(i) {
   const p = pelletPos[i] || (pelletPos[i] = new THREE.Vector3());
   p.set((Math.random() * 2 - 1) * (A - 2), 0.4, (Math.random() * 2 - 1) * (A - 2));
   tmpM.makeTranslation(p.x, p.y, p.z); pellets.setMatrixAt(i, tmpM);
-  pellets.setColorAt(i, tmpC.setHSL(Math.random(), 0.9, 0.6));
+  pellets.setColorAt(i, tmpC.setHSL(PELLET_HUES[Math.floor(Math.random() * PELLET_HUES.length)], 0.85, 0.55));
   pellets.instanceMatrix.needsUpdate = true; pellets.instanceColor.needsUpdate = true;
 }
 for (let i = 0; i < N_PELLETS; i++) placePellet(i);
@@ -172,16 +324,19 @@ let owners = [], cells = [], ejecta = [], me = null;
 function labelMaterial(text) {
   const c = document.createElement('canvas'); c.width = 256; c.height = 64;
   const g = c.getContext('2d');
-  g.font = 'bold 40px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.lineWidth = 6; g.strokeStyle = '#000'; g.strokeText(text, 128, 32);
-  g.fillStyle = '#fff'; g.fillText(text, 128, 32);
+  g.font = '600 40px "Segoe UI", "Frutiger", system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.shadowColor = 'rgba(0,70,150,0.9)'; g.shadowBlur = 10;
+  g.lineWidth = 5; g.strokeStyle = 'rgba(10,90,170,0.85)'; g.strokeText(text, 128, 32);
+  g.shadowBlur = 0; g.fillStyle = '#fff'; g.fillText(text, 128, 32);
   return new THREE.SpriteMaterial({map: new THREE.CanvasTexture(c), depthWrite: false});
 }
 
 function makeOwner(name, isPlayer, hue = Math.random()) {
   const o = {name, isPlayer, hue, cells: [], dir: new THREE.Vector3(), boost: 0, boostCd: 0, think: 0, alive: true,
-    mat: new THREE.MeshStandardMaterial({color: new THREE.Color().setHSL(hue, 0.75, 0.55),
-      emissive: new THREE.Color().setHSL(hue, 0.8, 0.15), roughness: 0.35, metalness: 0.1}),
+    // glossy "aqua" orb look
+    mat: new THREE.MeshPhysicalMaterial({color: new THREE.Color().setHSL(hue, 0.7, 0.52),
+      emissive: new THREE.Color().setHSL(hue, 0.8, 0.08), roughness: 0.12, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.04,
+      envMapIntensity: 1.6}),
     labelMat: labelMaterial(name)};
   owners.push(o); return o;
 }
@@ -352,7 +507,7 @@ let myHue = +(store.get('blob3d_hue') ?? 0.53), diffKey = store.get('blob3d_diff
 $('nameIn').value = store.get('blob3d_name') || '';
 for (const h of COLORS) {
   const s = document.createElement('div'); s.className = 'swatch';
-  s.style.background = `hsl(${h * 360},75%,55%)`;
+  s.style.background = `radial-gradient(circle at 35% 28%, rgba(255,255,255,.95) 0 14%, rgba(255,255,255,0) 45%), hsl(${h * 360},72%,52%)`;
   if (Math.abs(h - myHue) < 0.01) s.classList.add('sel');
   s.onclick = () => { myHue = h; store.set('blob3d_hue', h); document.querySelectorAll('.swatch').forEach(x => x.classList.remove('sel')); s.classList.add('sel'); };
   $('swatches').appendChild(s);
@@ -540,6 +695,7 @@ function updateCamera(dt) {
     camFocus.y + Math.sin(pitch) * camDist,
     camFocus.z + Math.cos(yaw) * Math.cos(pitch) * camDist);
   camera.lookAt(camFocus);
+  updateScenery(dt, camFocus);
   sun.position.set(camFocus.x + 40, 80, camFocus.z + 30); sun.target.position.copy(camFocus);
   const sc = 40 + R * 4 + spread;
   Object.assign(sun.shadow.camera, {left: -sc, right: sc, top: sc, bottom: -sc, near: 1, far: 200});
