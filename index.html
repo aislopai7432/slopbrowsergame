@@ -26,6 +26,11 @@
   #fillfill{height:100%;width:0;border-radius:9px;background:linear-gradient(180deg,#d4fb9c 0%,#8fdc45 48%,#5cb81e 52%,#93e64f 100%)}
   #radar{position:absolute;left:18px;top:150px;width:170px;height:170px;border-radius:50%;transition:box-shadow .2s}
   #radar.danger{box-shadow:0 0 0 3px rgba(255,60,80,.85),0 0 28px rgba(255,40,60,.7)}
+  #bokeh,#flare{position:fixed;inset:0;pointer-events:none;overflow:hidden}
+  .bk{position:absolute;border-radius:50%;filter:blur(1px);animation:drift linear infinite;
+    background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.55),rgba(255,255,255,.12) 45%,rgba(255,255,255,0) 70%);border:1px solid rgba(255,255,255,.25)}
+  @keyframes drift{from{transform:translateY(0)}to{transform:translateY(-120vh)}}
+  .fl{position:absolute;border-radius:50%;transform:translate(-50%,-50%);mix-blend-mode:screen}
   #vignette{position:fixed;inset:0;pointer-events:none;opacity:0;transition:opacity .15s;
     background:radial-gradient(ellipse at center,rgba(255,40,60,0) 55%,rgba(255,40,60,.55) 100%)}
   #dangerTxt{position:absolute;left:50%;top:84px;transform:translateX(-50%);padding:6px 16px;border-radius:999px;font-weight:700;font-size:15px;
@@ -87,6 +92,9 @@
   #clsDesc{font-size:13px;margin-top:8px;min-height:36px;text-align:left;line-height:1.4}
   #clsDesc .up{color:#1b8a1b} #clsDesc .down{color:#c0283c}
   #notesBtn{position:relative}
+  .btnrow2{display:flex;gap:8px}
+  @media (max-height:820px){ #mainMenu .panel{padding:20px 28px} #mainMenu .panel label{margin-top:9px} #mainMenu .tag{margin-bottom:8px}
+    #mainMenu button.primary{margin-top:12px} #clsDesc{min-height:0;margin-top:5px} }
   .newbadge{position:absolute;top:-6px;right:14px;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:700;color:#fff;
     background:linear-gradient(180deg,#ffc4cc 0%,#ff6b7d 48%,#e8384e 52%,#ff7d8e 100%);border:1px solid #c0283c}
   #notesList{text-align:left;max-height:min(58vh,460px);overflow-y:auto;padding-right:6px;touch-action:pan-y}
@@ -152,6 +160,8 @@
 </style>
 </head>
 <body>
+<div id="bokeh"></div>
+<div id="flare"></div>
 <div id="vignette"></div>
 <div id="hud" class="hidden">
   <div id="stats" class="glass">
@@ -195,8 +205,7 @@
     <div class="classes" id="classes"></div>
     <div id="clsDesc"></div>
     <button class="primary" id="playBtn">PLAY</button>
-    <button id="howBtn">How to play</button>
-    <button id="notesBtn">Patch notes</button>
+    <div class="btnrow2"><button id="howBtn">How to play</button><button id="notesBtn">Patch notes</button></div>
     <div class="best" id="bestTxt"></div>
     <div id="verTxt"></div>
   </div>
@@ -283,7 +292,7 @@ const skyMat = new THREE.ShaderMaterial({
   fragmentShader: `varying vec3 vP;
     void main(){
       float h = vP.y;
-      vec3 top = vec3(0.10, 0.52, 0.92), mid = vec3(0.45, 0.80, 0.99), hor = vec3(0.90, 0.97, 1.0), gnd = vec3(0.55, 0.82, 0.55);
+      vec3 top = vec3(0.02, 0.42, 0.88), mid = vec3(0.35, 0.78, 1.0), hor = vec3(0.86, 0.97, 1.0), gnd = vec3(0.55, 0.82, 0.55);
       vec3 c = h > 0.0 ? mix(mix(hor, mid, smoothstep(0.0, 0.22, h)), top, smoothstep(0.22, 0.95, h)) : mix(hor, gnd, smoothstep(0.0, -0.2, h));
       gl_FragColor = vec4(c, 1.0);
     }`});
@@ -345,6 +354,34 @@ const sunGlow = new THREE.Sprite(new THREE.SpriteMaterial({fog: false, depthWrit
     g.fillStyle = r; g.fillRect(0, 0, w, w);
   })}));
 sunGlow.scale.set(180, 180, 1); scene.add(sunGlow);
+// soft god rays fanning out of the sun
+const sunRays = new THREE.Sprite(new THREE.SpriteMaterial({fog: false, depthWrite: false, transparent: true, blending: THREE.AdditiveBlending, opacity: 0.45,
+  map: canvasTex(512, 512, (g, w) => {
+    g.translate(w / 2, w / 2);
+    for (let i = 0; i < 18; i++) {
+      g.rotate(Math.PI * 2 / 18 + (Math.random() - 0.5) * 0.15);
+      const len = w * (0.32 + Math.random() * 0.18), grd = g.createLinearGradient(0, 0, len, 0);
+      grd.addColorStop(0, 'rgba(255,255,235,0.55)'); grd.addColorStop(1, 'rgba(255,255,235,0)');
+      g.fillStyle = grd; g.beginPath(); g.moveTo(0, 0); g.lineTo(len, -w * 0.018); g.lineTo(len, w * 0.018); g.closePath(); g.fill();
+    }
+  })}));
+sunRays.scale.set(420, 420, 1); scene.add(sunRays);
+
+// Vista-style aurora swooshes curving across the sky
+const auroraMat = (c1, c2) => new THREE.ShaderMaterial({
+  uniforms: {time: {value: 0}, c1: {value: new THREE.Color(c1)}, c2: {value: new THREE.Color(c2)}},
+  transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, fog: false,
+  vertexShader: `uniform float time; varying vec2 vUv;
+    void main(){ vUv = uv; vec3 p = position; p.y += sin(uv.x * 6.0 + time * 0.4) * 6.0; gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0); }`,
+  fragmentShader: `uniform vec3 c1; uniform vec3 c2; varying vec2 vUv;
+    void main(){ float a = smoothstep(0.0, 0.5, vUv.y) * smoothstep(1.0, 0.5, vUv.y) * smoothstep(0.0, 0.15, vUv.x) * smoothstep(1.0, 0.85, vUv.x);
+      gl_FragColor = vec4(mix(c1, c2, vUv.x) * a * 0.55, 1.0); }`});
+const auroras = [];
+for (const [c1, c2, rad, y, tilt, rot] of [[0x7dffcf, 0x4fc3ff, 420, 150, 0.35, 0.3], [0xb8ffef, 0x8ad8ff, 470, 190, -0.25, 2.2], [0x9cff8a, 0x47e0ff, 440, 120, 0.15, 4.1]]) {
+  const geo = new THREE.CylinderGeometry(rad, rad, 40, 96, 1, true, 0, Math.PI * 0.9);
+  const m = new THREE.Mesh(geo, auroraMat(c1, c2));
+  m.position.y = y; m.rotation.set(tilt, rot, 0); scene.add(m); auroras.push(m);
+}
 
 // fluffy clouds
 const cloudTex = canvasTex(256, 128, (g, w, h) => {
@@ -379,8 +416,14 @@ grassTex.wrapS = grassTex.wrapT = THREE.RepeatWrapping; grassTex.repeat.set(4, 4
 const floor = new THREE.Mesh(new THREE.PlaneGeometry(A * 2, A * 2),
   new THREE.MeshStandardMaterial({map: grassTex, roughness: 0.55, envMapIntensity: 0.6}));
 floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
-const outer = new THREE.Mesh(new THREE.CircleGeometry(700, 64), new THREE.MeshStandardMaterial({color: 0x5fb847, roughness: 0.8}));
-outer.rotation.x = -Math.PI / 2; outer.position.y = -0.05; scene.add(outer);
+// the arena sits on a grassy island in a shiny blue lake
+const island = new THREE.Mesh(new THREE.CylinderGeometry(A * 1.75, A * 2.05, 3, 72), new THREE.MeshStandardMaterial({color: 0x6ccf4c, roughness: 0.6}));
+island.position.y = -1.56; island.receiveShadow = true; scene.add(island);
+const sand = new THREE.Mesh(new THREE.CylinderGeometry(A * 2.05, A * 2.2, 1.2, 72), new THREE.MeshStandardMaterial({color: 0xf3e3b0, roughness: 0.9}));
+sand.position.y = -2.9; scene.add(sand);
+const water = new THREE.Mesh(new THREE.CircleGeometry(900, 96), new THREE.MeshPhysicalMaterial({
+  color: 0x35b6f2, roughness: 0.06, metalness: 0.25, clearcoat: 1, clearcoatRoughness: 0.02, envMapIntensity: 1.8}));
+water.rotation.x = -Math.PI / 2; water.position.y = -2.6; scene.add(water);
 const grid = new THREE.GridHelper(A * 2, 50, 0xffffff, 0xffffff);
 grid.material.transparent = true; grid.material.opacity = 0.18; grid.position.y = 0.02; scene.add(grid);
 
@@ -404,21 +447,38 @@ const hillMat = new THREE.MeshStandardMaterial({color: 0x6fcf4f, roughness: 0.5,
 for (let i = 0; i < 22; i++) {
   const a = i / 22 * Math.PI * 2 + Math.random() * 0.2, r = 330 + Math.random() * 120, s = 45 + Math.random() * 50;
   const h = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 16), hillMat);
-  h.scale.set(s * 1.8, s * (0.18 + Math.random() * 0.17), s); h.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
+  h.scale.set(s * 1.8, s * (0.18 + Math.random() * 0.17), s); h.position.set(Math.cos(a) * r, -2.6, Math.sin(a) * r);
   h.rotation.y = -a; scene.add(h);
 }
 
 // drifting soap bubbles
-const bubbleMat = new THREE.MeshPhysicalMaterial({color: 0xffffff, roughness: 0, metalness: 0.1, clearcoat: 1, transparent: true, opacity: 0.22, envMapIntensity: 2.5, depthWrite: false});
+// soap film: clear in the middle, rainbow sheen around the edge that shifts with the viewing angle
+const bubbleMat = new THREE.ShaderMaterial({
+  uniforms: {time: {value: 0}}, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  vertexShader: `varying vec3 vN; varying vec3 vV; varying vec3 vW;
+    void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.0); vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz);
+      vW = (modelMatrix * vec4(position, 1.0)).xyz; gl_Position = projectionMatrix * mv; }`,
+  fragmentShader: `uniform float time; varying vec3 vN; varying vec3 vV; varying vec3 vW;
+    vec3 hue(float h){ return clamp(abs(mod(h * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0); }
+    void main(){
+      float f = 1.0 - max(dot(normalize(vN), normalize(vV)), 0.0);
+      vec3 rainbow = hue(f * 1.6 + vW.y * 0.05 + time * 0.1);
+      float spec = pow(max(dot(reflect(-normalize(vV), normalize(vN)), normalize(vec3(0.4, 0.8, 0.3))), 0.0), 40.0);
+      gl_FragColor = vec4(mix(vec3(1.0), rainbow, 0.75) * (pow(f, 2.5) * 0.9 + 0.03) + vec3(spec), 1.0);
+    }`});
 const bubbles = [];
-for (let i = 0; i < 45; i++) {
-  const m = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), bubbleMat);
-  m.scale.setScalar(0.4 + Math.random() * 1.4); scene.add(m);
+for (let i = 0; i < 60; i++) {
+  const m = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), bubbleMat);
+  m.scale.setScalar(0.5 + Math.random() * 2.2); scene.add(m);
   bubbles.push({m, sp: 1 + Math.random() * 2, ph: Math.random() * 6, reset: true});
 }
 function updateScenery(dt, focus) {
   sky.position.copy(camera.position);
   sunGlow.position.copy(camera.position).add(new THREE.Vector3(250, 300, 150));
+  sunRays.position.copy(sunGlow.position); sunRays.material.rotation += dt * 0.02;
+  bubbleMat.uniforms.time.value += dt;
+  for (const a of auroras) { a.material.uniforms.time.value += dt; a.position.x = camera.position.x; a.position.z = camera.position.z; }
+  updateLensFlare();
   for (const c of clouds) { c.a += c.sp * dt; c.s.position.x = Math.cos(c.a) * c.r; c.s.position.z = Math.sin(c.a) * c.r; }
   for (const b of bubbles) {
     if (b.reset || b.m.position.y > 40 || b.m.position.distanceTo(focus) > 90) {
@@ -835,6 +895,7 @@ setDiff(diffKey);
 
 // ---------- patch notes (newest first; the first entry is the current version) ----------
 const PATCH_NOTES = [
+ {"v": "0.11", "title": "Extra Aero", "notes": ["The arena now sits on a grassy island in a shiny blue lake, with the hills as islands", "Rainbow soap bubbles that shimmer as you look at them", "Sun rays and a lens flare when you look toward the sun", "Aurora light swooshes curving across the sky, like the old Windows wallpapers", "Soft glowing orbs floating up the screen", "Bluer, richer sky", "Tidier main menu that fits on shorter screens"]},
  {"v": "0.10", "title": "Slow Consume", "notes": ["Digestion: what you eat now absorbs into you gradually instead of all at once, so you swell steadily", "Eaten blobs stay visible inside you, shrinking away as you digest them", "Mass HUD shows how much you still have digesting", "The ending is much slower: from half the box to a win takes around a minute and a half at best", "Slower, bigger final swell when you fill the box", "Pellet size bonus reduced (now up to 4x)", "Bots can no longer grow bigger than the box"]},
  {
   "v": "0.9",
@@ -1258,7 +1319,7 @@ function updateHUD(dt) {
   const sorted = owners.filter(o => o.alive).map(o => ({o, m: totalMass(o)})).sort((a, b) => b.m - a.m);
   const rank = sorted.findIndex(x => x.o === me) + 1;
   const dig = me.cells.reduce((s, c) => s + c.digest, 0);
-  $('mass').innerHTML = 'Mass ' + Math.floor(totalMass(me)) + (dig >= 1 ? ` <span style="color:#1b8a1b;font-size:.7em">+${Math.floor(dig)} digesting</span>` : '')
+  $('mass').innerHTML = 'Mass ' + Math.floor(totalMass(me)) + (dig >= 1 ? `<div style="color:#1b8a1b;font-size:13px;font-weight:600">+${Math.floor(dig)} digesting</div>` : '')
     + (me.cells.length > 1 ? `  <span style="font-size:.7em">(${me.cells.length} cells)</span>` : '');
   $('rank').textContent = `Rank ${rank} / ${sorted.length} · ${CLASSES[clsKey].icon} ${CLASSES[clsKey].name}`;
   $('boostfill').style.width = (100 * (1 - me.boostCd / cls.boostCd)) + '%';
@@ -1268,6 +1329,35 @@ function updateHUD(dt) {
   let html = sorted.slice(0, 8).map((x, i) => `<div class="${x.o === me ? 'me' : ''}"><span>${i + 1}. ${x.o.name}</span><span>${Math.floor(x.m)}</span></div>`).join('');
   if (rank > 8) html += `<div class="me"><span>${rank}. You</span><span>${Math.floor(totalMass(me))}</span></div>`;
   $('lbrows').innerHTML = html;
+}
+
+// ---------- lens flare (follows the sun on screen) & floating bokeh ----------
+const FLARES = [[0.25, 70, 'rgba(255,255,220,.35)'], [0.55, 26, 'rgba(120,230,255,.35)'], [0.8, 46, 'rgba(160,255,190,.25)'],
+                [1.15, 18, 'rgba(255,255,255,.4)'], [1.4, 90, 'rgba(110,200,255,.15)'], [1.75, 34, 'rgba(200,255,150,.25)']];
+const flareEls = FLARES.map(([, size, col]) => {
+  const d = document.createElement('div'); d.className = 'fl';
+  d.style.width = d.style.height = size + 'px';
+  d.style.background = `radial-gradient(circle, ${col} 0%, ${col.replace(/[\d.]+\)$/, '0)')} 70%)`;
+  $('flare').appendChild(d); return d;
+});
+const _sunV = new THREE.Vector3();
+function updateLensFlare() {
+  _sunV.copy(sunGlow.position).project(camera);
+  const visible = _sunV.z < 1 && Math.abs(_sunV.x) < 1.2 && Math.abs(_sunV.y) < 1.2;
+  const sx = (_sunV.x + 1) / 2 * innerWidth, sy = (1 - _sunV.y) / 2 * innerHeight, cx = innerWidth / 2, cy = innerHeight / 2;
+  const strength = visible ? Math.max(0, 1 - Math.hypot(_sunV.x, _sunV.y) / 1.5) : 0;
+  FLARES.forEach(([k], i) => {
+    const e = flareEls[i];
+    e.style.left = sx + (cx - sx) * k + 'px'; e.style.top = sy + (cy - sy) * k + 'px';
+    e.style.opacity = strength.toFixed(2);
+  });
+}
+for (let i = 0; i < 12; i++) {
+  const b = document.createElement('div'); b.className = 'bk';
+  const size = 18 + Math.random() * 60;
+  Object.assign(b.style, {width: size + 'px', height: size + 'px', left: Math.random() * 100 + 'vw', top: 100 + Math.random() * 30 + 'vh',
+    opacity: (0.25 + Math.random() * 0.4).toFixed(2), animationDuration: 25 + Math.random() * 35 + 's', animationDelay: -Math.random() * 60 + 's'});
+  $('bokeh').appendChild(b);
 }
 
 // ---------- radar / danger sense ----------

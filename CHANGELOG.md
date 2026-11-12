@@ -2,7 +2,17 @@
 
 Newest first.
 
-## v0.10: Slow Consume (current)
+## v0.11: Extra Aero (current)
+
+- The arena now sits on a grassy island in a shiny blue lake, with the hills as islands
+- Rainbow soap bubbles that shimmer as you look at them
+- Sun rays and a lens flare when you look toward the sun
+- Aurora light swooshes curving across the sky, like the old Windows wallpapers
+- Soft glowing orbs floating up the screen
+- Bluer, richer sky
+- Tidier main menu that fits on shorter screens
+
+## v0.10: Slow Consume
 
 - Digestion: what you eat now absorbs into you gradually instead of all at once, so you swell steadily
 - Eaten blobs stay visible inside you, shrinking away as you digest them
