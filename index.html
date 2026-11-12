@@ -58,6 +58,46 @@
   .howto b{color:#1477c4;display:inline-block;min-width:92px}
   .stat{font-size:20px;margin:6px 0}
   .hidden{display:none!important}
+
+  /* ---- touch controls (only shown on phones / tablets) ---- */
+  body{-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;touch-action:none}
+  #touch{display:none}
+  body.touch #touch{display:block}
+  body.touch #keys{display:none}
+  #touch .zone{position:absolute;top:0;bottom:0;pointer-events:auto;touch-action:none}
+  #lzone{left:0;width:50%}
+  #rzone{right:0;width:50%}
+  #stick{position:absolute;width:124px;height:124px;margin:-62px 0 0 -62px;border-radius:50%;display:none;pointer-events:none}
+  #knob{position:absolute;left:50%;top:50%;width:56px;height:56px;margin:-28px 0 0 -28px;border-radius:50%;
+    background:linear-gradient(180deg,#c4f1ff 0%,#5cc8f5 48%,#2299dd 52%,#5fd0ff 100%);border:1px solid #fff;box-shadow:0 3px 10px rgba(0,60,120,.35)}
+  #stickHint{position:absolute;left:24px;bottom:22px;width:110px;height:110px;border-radius:50%;opacity:.55;pointer-events:none;
+    display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;text-align:center}
+  .tbtn{position:absolute;pointer-events:auto;touch-action:none;width:62px;height:62px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;user-select:none;-webkit-user-select:none}
+  .tbtn.on{transform:scale(.92);filter:brightness(1.15) saturate(1.4)}
+  #tSplit{right:18px;bottom:22px;width:80px;height:80px;font-size:14px;color:#fff;text-shadow:0 1px 2px rgba(0,70,0,.6);
+    background:linear-gradient(180deg,#d4fb9c 0%,#8fdc45 48%,#5cb81e 52%,#93e64f 100%);border:1px solid #4b9b1c}
+  #tDrop{right:110px;bottom:14px}
+  #tBoost{right:26px;bottom:116px}
+  #tUp{right:182px;bottom:88px}
+  #tDown{right:182px;bottom:16px}
+  #tUp,#tDown{width:54px;height:54px;font-size:20px}
+  #tPause{left:50%;top:12px;width:44px;height:44px;margin-left:-22px;font-size:16px}
+  .overlay{overflow-y:auto;align-items:safe center;touch-action:pan-y}
+  @media (max-width:700px),(max-height:500px){
+    #hud{padding:10px}
+    #stats{padding:6px 12px 8px;min-width:0;border-radius:14px}
+    #mass{font-size:18px} #rank{font-size:12px} #boostbar{width:100px;height:7px;margin-top:6px}
+    #lb{top:10px;right:10px;padding:6px 10px;min-width:118px;font-size:11px;border-radius:14px}
+    #lb h3{font-size:12px;margin-bottom:3px}
+    #lbrows>div:nth-child(n+6):not(.me){display:none}
+    .panel{padding:20px 20px;border-radius:22px}
+    .panel h1{font-size:36px}
+    .panel label{margin-top:10px}
+    button{padding:10px;font-size:16px}
+    button.primary{margin-top:16px;font-size:19px;padding:12px}
+    .swatch{width:30px;height:30px}
+  }
 </style>
 </head>
 <body>
@@ -69,6 +109,18 @@
   </div>
   <div id="keys" class="glass">WASD fly · Mouse look · R/F up/down · Space split · E drop mass · Shift boost</div>
   <div id="lb" class="glass"><h3>Leaderboard</h3><div id="lbrows"></div></div>
+  <div id="touch">
+    <div class="zone" id="lzone"></div>
+    <div class="zone" id="rzone"></div>
+    <div id="stickHint" class="glass">Drag here<br>to fly</div>
+    <div id="stick" class="glass"><div id="knob"></div></div>
+    <div class="tbtn glass" id="tSplit">SPLIT</div>
+    <div class="tbtn glass" id="tDrop">DROP</div>
+    <div class="tbtn glass" id="tBoost">BOOST</div>
+    <div class="tbtn glass" id="tUp">▲</div>
+    <div class="tbtn glass" id="tDown">▼</div>
+    <div class="tbtn glass" id="tPause">❚❚</div>
+  </div>
 </div>
 <div id="mainMenu" class="overlay">
   <div class="panel glass">
@@ -98,6 +150,7 @@
       <div><b>E</b> Drop pellets of your mass (hold)</div>
       <div><b>Shift</b> Speed boost, costs a little mass</div>
       <div><b>Esc / P</b> Pause</div>
+      <p><b>On a phone:</b> drag the left side of the screen to fly, drag the right side to look around, and use the buttons for split, drop, boost and up/down. Landscape works best.</p>
       <p>Eat the small pellets to grow. You can eat any blob even slightly smaller than you (8%) by bumping into it. Bots need to be 20% bigger than you. Bigger blobs are slower. Split cells pull back together and merge after a few seconds.</p>
     </div>
     <button class="primary" id="howBack">Back</button>
@@ -124,10 +177,11 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 // ---------- setup ----------
+const IS_TOUCH = matchMedia('(pointer: coarse)').matches;
 const A = 60;  // half-width of the arena
 const H = 70;  // arena height: you can fly anywhere from the grass up to here
 const renderer = new THREE.WebGLRenderer({antialias: true});
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(devicePixelRatio, IS_TOUCH ? 1.5 : 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -190,7 +244,7 @@ scene.environment = makeEnvCube();
 scene.add(new THREE.HemisphereLight(0xcdeeff, 0x6fbf4a, 0.75));
 const sun = new THREE.DirectionalLight(0xfff3dc, 1.0);
 sun.position.set(40, 160, 30); sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.mapSize.set(IS_TOUCH ? 1024 : 2048, IS_TOUCH ? 1024 : 2048);
 sun.shadow.radius = 4;
 Object.assign(sun.shadow.camera, {left: -A - 10, right: A + 10, top: A + 10, bottom: -A - 10, near: 1, far: 400});
 sun.shadow.camera.updateProjectionMatrix();
@@ -295,7 +349,7 @@ function updateScenery(dt, focus) {
 }
 
 // ---------- pellets (instanced, glossy) ----------
-const N_PELLETS = 2800;
+const N_PELLETS = IS_TOUCH ? 2000 : 2800;
 const PELLET_HUES = [0.5, 0.55, 0.58, 0.3, 0.36, 0.14, 0.08, 0.9, 0.78];
 const pellets = new THREE.InstancedMesh(new THREE.SphereGeometry(0.32, 12, 8),
   new THREE.MeshPhysicalMaterial({roughness: 0.1, clearcoat: 1, envMapIntensity: 1.4}), N_PELLETS);
@@ -513,22 +567,80 @@ addEventListener('mousemove', e => {
   pitch = Math.max(-1.35, Math.min(1.35, pitch + e.movementY * 0.0022));
 });
 
+// ---------- touch controls ----------
+const joy = {x: 0, y: 0, id: null, cx: 0, cy: 0};
+let lookId = null, lookX = 0, lookY = 0;
+let touchMode = IS_TOUCH;
+function enableTouch() { touchMode = true; document.body.classList.add('touch'); }
+if (IS_TOUCH) enableTouch();
+addEventListener('touchstart', enableTouch, {once: true, passive: true});
+function lockMouse() { if (!touchMode) renderer.domElement.requestPointerLock?.(); }
+
+const lzone = document.getElementById('lzone'), rzone = document.getElementById('rzone');
+const stick = document.getElementById('stick'), knob = document.getElementById('knob'), stickHint = document.getElementById('stickHint');
+const STICK_R = 52;
+lzone.addEventListener('pointerdown', e => {
+  if (joy.id !== null) return;
+  joy.id = e.pointerId; joy.cx = e.clientX; joy.cy = e.clientY;
+  lzone.setPointerCapture(e.pointerId);
+  stick.style.left = e.clientX + 'px'; stick.style.top = e.clientY + 'px'; stick.style.display = 'block';
+  knob.style.transform = ''; stickHint.style.display = 'none';
+});
+lzone.addEventListener('pointermove', e => {
+  if (e.pointerId !== joy.id) return;
+  let dx = e.clientX - joy.cx, dy = e.clientY - joy.cy;
+  const d = Math.hypot(dx, dy);
+  if (d > STICK_R) { dx *= STICK_R / d; dy *= STICK_R / d; }
+  joy.x = dx / STICK_R; joy.y = dy / STICK_R;
+  knob.style.transform = `translate(${dx}px, ${dy}px)`;
+});
+function endStick(e) { if (e.pointerId !== joy.id) return; joy.id = null; joy.x = joy.y = 0; stick.style.display = 'none'; }
+lzone.addEventListener('pointerup', endStick); lzone.addEventListener('pointercancel', endStick);
+
+rzone.addEventListener('pointerdown', e => { if (lookId !== null) return; lookId = e.pointerId; lookX = e.clientX; lookY = e.clientY; rzone.setPointerCapture(e.pointerId); });
+rzone.addEventListener('pointermove', e => {
+  if (e.pointerId !== lookId) return;
+  yaw -= (e.clientX - lookX) * 0.006;
+  pitch = Math.max(-1.35, Math.min(1.35, pitch + (e.clientY - lookY) * 0.005));
+  lookX = e.clientX; lookY = e.clientY;
+});
+function endLook(e) { if (e.pointerId === lookId) lookId = null; }
+rzone.addEventListener('pointerup', endLook); rzone.addEventListener('pointercancel', endLook);
+
+function touchButton(id, onDown, holdKey) {
+  const el = document.getElementById(id);
+  el.addEventListener('pointerdown', e => {
+    e.preventDefault(); e.stopPropagation(); el.classList.add('on');
+    if (holdKey) keys[holdKey] = true;
+    if (state === 'play' && onDown) onDown();
+  });
+  const up = () => { el.classList.remove('on'); if (holdKey) keys[holdKey] = false; };
+  el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); el.addEventListener('pointerleave', up);
+}
+touchButton('tSplit', () => split(me));
+touchButton('tDrop', () => eject(me), 'KeyE');
+touchButton('tBoost', () => boost(me));
+touchButton('tUp', null, 'KeyR');
+touchButton('tDown', null, 'KeyF');
+touchButton('tPause', () => pause());
+
 // direction the camera is looking (includes up/down)
 function camForward() {
   return new THREE.Vector3(-Math.sin(yaw) * Math.cos(pitch), -Math.sin(pitch), -Math.cos(yaw) * Math.cos(pitch)).normalize();
 }
 function playerDir() {
-  let f = 0, s = 0, u = 0;
+  let f = -joy.y, s = joy.x, u = 0;
   if (keys.KeyW || keys.ArrowUp) f += 1;
   if (keys.KeyS || keys.ArrowDown) f -= 1;
   if (keys.KeyD || keys.ArrowRight) s += 1;
   if (keys.KeyA || keys.ArrowLeft) s -= 1;
   if (keys.KeyR) u += 1;
+  f = Math.max(-1, Math.min(1, f)); s = Math.max(-1, Math.min(1, s));
   if (keys.KeyF || keys.KeyC || keys.ControlLeft) u -= 1;
   const v = camForward().multiplyScalar(f)
     .add(new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw)).multiplyScalar(s))
     .add(new THREE.Vector3(0, u, 0));
-  return v.lengthSq() ? v.normalize() : v;
+  return v.lengthSq() > 1 ? v.normalize() : v; // joystick keeps partial speed
 }
 
 // ---------- game ----------
@@ -582,8 +694,11 @@ function toMainMenu() {
   $('bestTxt').textContent = bestText();
   show('mainMenu');
 }
-function pause() { state = 'paused'; document.exitPointerLock?.(); show('pauseMenu'); }
-function resume() { state = 'play'; show(null); renderer.domElement.requestPointerLock?.(); last = performance.now(); }
+function pause() {
+  state = 'paused'; document.exitPointerLock?.(); show('pauseMenu');
+  joy.x = joy.y = 0; joy.id = null; lookId = null; stick.style.display = 'none'; keys.KeyE = keys.KeyR = keys.KeyF = false;
+}
+function resume() { state = 'play'; show(null); lockMouse(); last = performance.now(); }
 
 function start() {
   const name = $('nameIn').value.trim().slice(0, 14) || 'You';
@@ -595,9 +710,10 @@ function start() {
   for (let i = 0; i < N_BOTS; i++) spawnBot();
   time = 0; peak = 12; yaw = Math.PI; pitch = 0.3;
   for (const k in keys) keys[k] = false;
+  joy.x = joy.y = 0; joy.id = null; lookId = null; stick.style.display = 'none';
   state = 'play';
   show(null);
-  renderer.domElement.requestPointerLock?.();
+  lockMouse();
 }
 
 function die(killer) {
