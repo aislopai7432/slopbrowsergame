@@ -59,6 +59,19 @@
   #lb h3{margin:0 0 6px;font-size:15px;text-align:center;font-weight:600;letter-spacing:.5px}
   #lbrows>div{display:flex;justify-content:space-between;gap:12px;padding:1px 0}
   #lb .me{color:#1b8a1b;font-weight:700}
+  .logoOrb{width:58px;height:58px;margin:-6px auto 6px;border-radius:50%;position:relative;animation:orbBob 3s ease-in-out infinite;
+    background:radial-gradient(circle at 50% 120%,rgba(120,255,160,.9),rgba(120,255,160,0) 60%),radial-gradient(circle at 50% 40%,#5fe0ff,#1477c4 70%,#0a4f8f);
+    box-shadow:0 6px 16px rgba(0,80,160,.35),inset 0 -6px 12px rgba(0,40,90,.35),inset 0 2px 3px rgba(255,255,255,.6)}
+  .logoOrb::before{content:"";position:absolute;left:12%;top:6%;width:76%;height:46%;border-radius:50%;
+    background:linear-gradient(180deg,rgba(255,255,255,.95),rgba(255,255,255,.1))}
+  .logoOrb::after{content:"";position:absolute;left:18%;bottom:-14px;width:64%;height:8px;border-radius:50%;background:rgba(0,60,120,.18);filter:blur(3px)}
+  @keyframes orbBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+  .panel>.drop{position:absolute}
+  .drop{position:absolute;border-radius:50% 50% 50% 50%/60% 60% 40% 40%;pointer-events:none;
+    background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.95) 0 12%,rgba(255,255,255,.18) 35%,rgba(120,200,255,.12) 70%,rgba(255,255,255,.5) 100%);
+    box-shadow:1px 2px 3px rgba(0,60,120,.25),inset -1px -2px 3px rgba(0,60,120,.15)}
+  .overlay::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.7;background-size:cover;background-position:center;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 900' preserveAspectRatio='none'%3E%3Cdefs%3E%3ClinearGradient id='a' x1='0' x2='1'%3E%3Cstop offset='0' stop-color='%23fff' stop-opacity='0'/%3E%3Cstop offset='.5' stop-color='%23fff' stop-opacity='.9'/%3E%3Cstop offset='1' stop-color='%23fff' stop-opacity='0'/%3E%3C/linearGradient%3E%3ClinearGradient id='b' x1='0' x2='1'%3E%3Cstop offset='0' stop-color='%237cfc00' stop-opacity='0'/%3E%3Cstop offset='.5' stop-color='%237cfc00' stop-opacity='.7'/%3E%3Cstop offset='1' stop-color='%2300aaff' stop-opacity='0'/%3E%3C/linearGradient%3E%3Cfilter id='f'%3E%3CfeGaussianBlur stdDeviation='6'/%3E%3C/filter%3E%3C/defs%3E%3Cg fill='none' filter='url(%23f)'%3E%3Cpath d='M-100 720 C 400 520, 900 900, 1700 560' stroke='url(%23a)' stroke-width='26'/%3E%3Cpath d='M-100 780 C 500 600, 1000 960, 1700 640' stroke='url(%23b)' stroke-width='14'/%3E%3Cpath d='M-100 200 C 500 360, 1100 60, 1700 260' stroke='url(%23a)' stroke-width='12'/%3E%3C/g%3E%3C/svg%3E")}
   .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;
     background:radial-gradient(ellipse at center,rgba(255,255,255,.15),rgba(90,180,240,.35))}
   .panel{border-radius:26px;padding:28px 32px;width:100%;max-width:420px;text-align:center;position:relative;overflow:hidden}
@@ -230,6 +243,7 @@
 </div>
 <div id="mainMenu" class="overlay">
   <div class="panel glass">
+    <div class="logoOrb"></div>
     <h1><b>Bubble</b> Bliss</h1>
     <div class="tag">Soak up the sky.</div>
     <label for="nameIn">Name</label>
@@ -336,6 +350,7 @@ const liteGfx = () => gfx === 'fast' || (gfx === 'auto' && SOFTWARE_GL);
 // 'fast' is lightweight everywhere, 'pretty' renders at full resolution
 let gfx = 'auto'; try { gfx = localStorage.getItem('blob3d_gfx') || 'auto'; } catch (e) {}
 let resScale = 1;
+let composer = null, bloomPass = null; // soft Aero glow, set up once its scripts have loaded
 function applyResolution() {
   const maxPR = liteGfx() ? 1 : (gfx === 'pretty' ? 2 : (IS_TOUCH ? 1.5 : 2));
   const budget = gfx === 'pretty' ? Infinity : (gfx === 'auto' && SOFTWARE_GL) ? 0.5e6 : gfx === 'fast' ? 1.0e6 : (IS_TOUCH ? 2.4e6 : 8.3e6); // rendered pixels per frame (8.3M = 4K)
@@ -343,6 +358,7 @@ function applyResolution() {
   if (gfx === 'auto') pr *= resScale;
   renderer.setPixelRatio(Math.max(0.5, pr));
   renderer.setSize(innerWidth, innerHeight);
+  if (composer) { composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(innerWidth, innerHeight); }
 }
 applyResolution();
 renderer.shadowMap.enabled = true;
@@ -553,6 +569,7 @@ function updateScenery(dt, focus) {
   bubbleMat.uniforms.time.value += dt;
   for (const a of auroras) { a.material.uniforms.time.value += dt; a.position.x = camera.position.x; a.position.z = camera.position.z; }
   if (!liteGfx()) updateLensFlare();
+  updateAeroLife(dt);
   for (const c of clouds) { c.a += c.sp * dt; c.s.position.x = Math.cos(c.a) * c.r; c.s.position.z = Math.sin(c.a) * c.r; }
   for (const b of bubbles) {
     if (b.reset || b.m.position.y > 40 || b.m.position.distanceTo(focus) > 90) {
@@ -561,6 +578,129 @@ function updateScenery(dt, focus) {
     }
     b.ph += dt; b.m.position.y += b.sp * dt; b.m.position.x += Math.sin(b.ph) * dt * 0.6;
   }
+}
+
+// ---------- Frutiger Aqua & Eco life: tropical fish, dolphins, round glossy trees, sparkles ----------
+const glossy = (color, extra = {}) => new THREE.MeshPhysicalMaterial({color, roughness: 0.15, clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 1.6, ...extra});
+const finShape = new THREE.Shape(); finShape.moveTo(0, 0); finShape.lineTo(-1, 0.75); finShape.lineTo(-0.75, 0); finShape.lineTo(-1, -0.75); finShape.closePath();
+const finGeo = new THREE.ShapeGeometry(finShape);
+const fishBodyGeo = new THREE.SphereGeometry(1, 18, 12);
+const FISH_KINDS = [ // body colour, fin colour
+  [0xff7a1a, 0xffffff], [0x1f6fff, 0xffd400], [0xffd400, 0x22a0ff], [0x22d3ee, 0xff5fa2], [0x7cfc00, 0x1f8fff]];
+const schools = [];
+for (let s = 0; s < 6; s++) {
+  const [bodyC, finC] = FISH_KINDS[s % FISH_KINDS.length];
+  const bodyMat = glossy(bodyC, {emissive: new THREE.Color(bodyC).multiplyScalar(0.12)});
+  const finMat = glossy(finC, {side: THREE.DoubleSide, transparent: true, opacity: 0.9});
+  const school = {fish: [], r: A + 22 + Math.random() * 30, y: 12 + Math.random() * 40, speed: (0.12 + Math.random() * 0.1) * (Math.random() < 0.5 ? -1 : 1),
+    a: Math.random() * Math.PI * 2, bob: Math.random() * 6};
+  const n = 6 + Math.floor(Math.random() * 6), size = 1.2 + Math.random() * 1.2;
+  for (let i = 0; i < n; i++) {
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(fishBodyGeo, bodyMat); body.scale.set(1, 0.62, 0.3); g.add(body);
+    const tail = new THREE.Mesh(finGeo, finMat); tail.position.x = -0.85; g.add(tail);
+    g.scale.setScalar(size * (0.8 + Math.random() * 0.4));
+    scene.add(g);
+    school.fish.push({g, tail, off: new THREE.Vector3((Math.random() - 0.5) * 10, (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 10), ph: Math.random() * 6});
+  }
+  schools.push(school);
+}
+
+// dolphins leaping out of the lake, with splash rings
+const dolphinMat = glossy(0x6f9fd8, {emissive: 0x0b1e33}), bellyMat = glossy(0xe9f4ff);
+const rippleMat = new THREE.MeshBasicMaterial({color: 0xffffff, transparent: true, opacity: 0.8, depthWrite: false});
+const dolphins = [], ripples = [];
+for (let i = 0; i < 4; i++) {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(fishBodyGeo, dolphinMat); body.scale.set(3.2, 0.95, 0.95); g.add(body);
+  const belly = new THREE.Mesh(fishBodyGeo, bellyMat); belly.scale.set(2.6, 0.6, 0.8); belly.position.y = -0.35; g.add(belly);
+  const snout = new THREE.Mesh(fishBodyGeo, dolphinMat); snout.scale.set(0.9, 0.3, 0.3); snout.position.set(3.2, -0.15, 0); g.add(snout);
+  const dorsal = new THREE.Mesh(finGeo, dolphinMat); dorsal.scale.set(1.1, 1.1, 1); dorsal.rotation.z = -1.4; dorsal.position.set(0.2, 0.8, 0); g.add(dorsal);
+  const fluke = new THREE.Mesh(finGeo, dolphinMat); fluke.rotation.x = Math.PI / 2; fluke.scale.set(1.2, 1.4, 1); fluke.position.x = -3.1; g.add(fluke);
+  g.visible = false; scene.add(g);
+  dolphins.push({g, t: -Math.random() * 6, dur: 2.4, from: new THREE.Vector3(), dir: new THREE.Vector3()});
+}
+function splash(x, z) {
+  const m = new THREE.Mesh(new THREE.RingGeometry(0.6, 1.2, 32), rippleMat.clone());
+  m.rotation.x = -Math.PI / 2; m.position.set(x, -2.5, z); scene.add(m); ripples.push({m, t: 0});
+}
+
+// Wii-style round glossy trees around the island
+const trunkMat = glossy(0x9a6a3e), leafMats = [glossy(0x5fd13a), glossy(0x7ae04b), glossy(0x3fbf5a)];
+for (let i = 0; i < 26; i++) {
+  const a = i / 26 * Math.PI * 2 + Math.random() * 0.15, r = A * (1.32 + Math.random() * 0.35);
+  const g = new THREE.Group(), h = 6 + Math.random() * 6;
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.9, h, 10), trunkMat); trunk.position.y = h / 2; g.add(trunk);
+  const blobs = 1 + Math.floor(Math.random() * 3);
+  for (let b = 0; b < blobs; b++) {
+    const leaf = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), leafMats[Math.floor(Math.random() * 3)]);
+    leaf.scale.setScalar(3.2 + Math.random() * 1.6); leaf.position.set((Math.random() - 0.5) * 3, h + 1 + b * 2.2, (Math.random() - 0.5) * 3);
+    g.add(leaf);
+  }
+  g.position.set(Math.cos(a) * r, 0, Math.sin(a) * r); scene.add(g);
+}
+
+// twinkling sparkles (four-point glints) drifting around the arena
+const sparkleTex = canvasTex(64, 64, (g, w) => {
+  const c = w / 2, grd = g.createRadialGradient(c, c, 0, c, c, c * 0.5);
+  grd.addColorStop(0, 'rgba(255,255,255,1)'); grd.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grd; g.fillRect(0, 0, w, w);
+  g.fillStyle = 'rgba(255,255,255,0.9)';
+  g.beginPath(); g.moveTo(c, 0); g.lineTo(c + 3, c); g.lineTo(c, w); g.lineTo(c - 3, c); g.closePath(); g.fill();
+  g.beginPath(); g.moveTo(0, c); g.lineTo(c, c - 3); g.lineTo(w, c); g.lineTo(c, c + 3); g.closePath(); g.fill();
+});
+const N_SPARK = 160, sparkPos = new Float32Array(N_SPARK * 3), sparkPh = new Float32Array(N_SPARK);
+for (let i = 0; i < N_SPARK; i++) {
+  sparkPos.set([(Math.random() * 2 - 1) * A * 1.3, Math.random() * H * 1.1, (Math.random() * 2 - 1) * A * 1.3], i * 3); sparkPh[i] = Math.random() * 100;
+}
+const sparkGeo = new THREE.BufferGeometry();
+sparkGeo.setAttribute('position', new THREE.BufferAttribute(sparkPos, 3)); sparkGeo.setAttribute('phase', new THREE.BufferAttribute(sparkPh, 1));
+const sparkMat = new THREE.ShaderMaterial({
+  uniforms: {time: {value: 0}, map: {value: sparkleTex}, scale: {value: innerHeight}},
+  transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  vertexShader: `uniform float time; uniform float scale; attribute float phase; varying float vA;
+    void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.0);
+      float tw = pow(max(sin(time * 1.7 + phase), 0.0), 6.0); vA = tw;
+      gl_PointSize = (1.5 + tw * 7.0) * scale / 160.0 * (60.0 / max(-mv.z, 1.0)); gl_Position = projectionMatrix * mv; }`,
+  fragmentShader: `uniform sampler2D map; varying float vA; void main(){ gl_FragColor = texture2D(map, gl_PointCoord) * vA; }`});
+scene.add(new THREE.Points(sparkGeo, sparkMat));
+
+const _fishDir = new THREE.Vector3();
+function updateAeroLife(dt) {
+  const t = performance.now() / 1000;
+  sparkMat.uniforms.time.value = t; sparkMat.uniforms.scale.value = innerHeight;
+  for (const s of schools) {
+    s.a += s.speed * dt;
+    const cx = Math.cos(s.a) * s.r, cz = Math.sin(s.a) * s.r, cy = s.y + Math.sin(t * 0.5 + s.bob) * 4;
+    _fishDir.set(-Math.sin(s.a) * Math.sign(s.speed), 0, Math.cos(s.a) * Math.sign(s.speed)); // swim along the circle
+    const yaw = Math.atan2(-_fishDir.z, _fishDir.x);
+    for (const f of s.fish) {
+      f.ph += dt;
+      f.g.position.set(cx + f.off.x + Math.sin(f.ph * 0.9) * 1.2, cy + f.off.y + Math.sin(f.ph * 1.3) * 0.8, cz + f.off.z);
+      f.g.rotation.set(0, yaw + Math.sin(f.ph * 2) * 0.12, 0);
+      f.tail.rotation.y = Math.sin(f.ph * 12) * 0.5;
+    }
+  }
+  for (const d of dolphins) {
+    d.t += dt;
+    if (d.t < 0) continue;
+    if (!d.g.visible) { // start a new leap somewhere out on the lake
+      const a = Math.random() * Math.PI * 2, r = A * 2.35 + Math.random() * 90;
+      d.from.set(Math.cos(a) * r, -3, Math.sin(a) * r);
+      const da = a + Math.PI / 2 * (Math.random() < 0.5 ? 1 : -1); d.dir.set(Math.cos(da), 0, Math.sin(da));
+      d.g.visible = true; d.t = 0; splash(d.from.x, d.from.z);
+    }
+    const k = d.t / d.dur;
+    if (k >= 1) { d.g.visible = false; d.t = -(3 + Math.random() * 6); const e = d.from.clone().addScaledVector(d.dir, 22); splash(e.x, e.z); continue; }
+    d.g.position.copy(d.from).addScaledVector(d.dir, 22 * k); d.g.position.y = -3 + Math.sin(k * Math.PI) * 11;
+    d.g.rotation.set(0, Math.atan2(-d.dir.z, d.dir.x), Math.cos(k * Math.PI) * 0.9); // nose up, then down
+  }
+  for (const r of ripples) {
+    r.t += dt; const k = r.t / 1.4;
+    r.m.scale.setScalar(1 + k * 6); r.m.material.opacity = 0.8 * (1 - k);
+    if (k >= 1) { scene.remove(r.m); r.m.geometry.dispose(); r.done = true; }
+  }
+  for (let i = ripples.length - 1; i >= 0; i--) if (ripples[i].done) ripples.splice(i, 1);
 }
 
 // ---------- pellets (instanced, glossy) ----------
@@ -1004,6 +1144,7 @@ setDiff(diffKey);
 
 // ---------- patch notes (newest first; the first entry is the current version) ----------
 const PATCH_NOTES = [
+ {"v": "0.21", "title": "Aero Dream", "notes": ["Soft bloom glow on the sun, highlights and glossy edges (Auto and Pretty graphics)", "Schools of glossy tropical fish swim around the arena", "Dolphins leap out of the lake with splashes", "Round, glossy, Wii-style trees around the island", "Twinkling sparkles in the air", "Menus: a glossy orb logo, water droplets on the glass panels and Vista-style light swooshes"]},
  {"v": "0.20", "title": "Fullscreen", "notes": ["Fullscreen button on the main menu and in the pause menu", "The game remembers it: once you've turned fullscreen on, Play puts you straight back into fullscreen", "On Android phones, fullscreen also locks to landscape"]},
  {"v": "0.19", "title": "GPU Check", "notes": ["The game now asks your browser for your fast graphics card", "If your browser isn't using your graphics card at all (hardware acceleration off), the main menu warns you and shows how to turn it on for your browser", "Without a graphics card, Auto graphics switches to light settings so the game stays as playable as possible", "The pause menu shows which graphics card the game is running on"]},
  {"v": "0.18", "title": "High Refresh", "notes": ["The game now ticks at your monitor's refresh rate (up to 240 Hz), so 144/200/240 Hz screens get real high-fps movement, not blended 60", "Auto graphics now keeps full resolution (up to 4K) and only lowers it a little (never below 70%) if your PC can't keep up with your monitor", "Shadows redraw every other frame above 100 fps: looks the same, saves your graphics card work", "Show FPS toggle in the pause menu puts a live fps counter on screen", "Pause menu shows your fps, your screen's refresh rate and game tick rate"]},
@@ -1632,6 +1773,14 @@ function updateLensFlare() {
     e.style.opacity = strength.toFixed(2);
   });
 }
+// water droplets resting on the glass panels
+document.querySelectorAll('.panel').forEach(p => {
+  for (const [l, t, sz] of [[6, 10, 16], [92, 6, 10], [94, 70, 14], [3, 84, 9], [88, 93, 7]]) {
+    const d = document.createElement('span'); d.className = 'drop';
+    Object.assign(d.style, {left: l + '%', top: t + '%', width: sz + 'px', height: sz * 1.1 + 'px'});
+    p.appendChild(d);
+  }
+});
 for (let i = 0; i < 12; i++) {
   const b = document.createElement('div'); b.className = 'bk';
   const size = 18 + Math.random() * 60;
@@ -2084,6 +2233,24 @@ updateFsLabels();
 for (const id of ['playBtn', 'againBtn', 'winAgain', 'hostBtn', 'joinGo', 'resumeBtn'])
   $(id).addEventListener('click', () => { if (fsSupported && !isFs() && store.get('blob3d_fs') === '1') enterFullscreen(); });
 
+// ---------- bloom: the soft Aero glow on the sun, highlights and glossy edges ----------
+(async () => {
+  const base = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/';
+  try {
+    for (const f of ['shaders/CopyShader.js', 'shaders/LuminosityHighPassShader.js', 'postprocessing/EffectComposer.js',
+                     'postprocessing/RenderPass.js', 'postprocessing/ShaderPass.js', 'postprocessing/UnrealBloomPass.js'])
+      await loadScript(base + f);
+    const size = renderer.getDrawingBufferSize(new THREE.Vector2());
+    const target = renderer.capabilities.isWebGL2 && THREE.WebGLMultisampleRenderTarget
+      ? new THREE.WebGLMultisampleRenderTarget(size.x, size.y, {format: THREE.RGBAFormat}) : undefined; // keep edges smooth
+    composer = new THREE.EffectComposer(renderer, target);
+    composer.addPass(new THREE.RenderPass(scene, camera));
+    bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.28, 0.35, 0.965); // only the brightest glints glow
+    composer.addPass(bloomPass);
+    applyResolution();
+  } catch (e) { composer = null; } // no bloom is fine: the game looks almost the same without it
+})();
+
 // ---------- loop ----------
 for (let i = 0; i < N_BOTS; i++) spawnBot(); // bots play on the title screen
 $('bestTxt').textContent = bestText();
@@ -2108,7 +2275,7 @@ function frame(now) {
   render3D(dt);
   updateCamera(dt);
   renderer.shadowMap.needsUpdate = fps < 100 || (shadowFrame++ & 1) === 0;
-  renderer.render(scene, camera);
+  if (composer && !liteGfx()) composer.render(); else renderer.render(scene, camera);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

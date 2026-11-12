@@ -2,7 +2,16 @@
 
 Newest first.
 
-## v0.20: Fullscreen (current)
+## v0.21: Aero Dream (current)
+
+- Soft bloom glow on the sun, highlights and glossy edges (Auto and Pretty graphics)
+- Schools of glossy tropical fish swim around the arena
+- Dolphins leap out of the lake with splashes
+- Round, glossy, Wii-style trees around the island
+- Twinkling sparkles in the air
+- Menus: a glossy orb logo, water droplets on the glass panels and Vista-style light swooshes
+
+## v0.20: Fullscreen
 
 - Fullscreen button on the main menu and in the pause menu
 - The game remembers it: once you've turned fullscreen on, Play puts you straight back into fullscreen
