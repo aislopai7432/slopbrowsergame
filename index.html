@@ -105,6 +105,11 @@
   #joinRow input{text-transform:uppercase;letter-spacing:4px;text-align:center;font-weight:700}
   #joinRow button{width:auto;margin:0;padding:10px 22px;color:#fff;text-shadow:0 1px 2px rgba(0,60,120,.6);border-color:#1b86c9;
     background:linear-gradient(180deg,#c4f1ff 0%,#5cc8f5 48%,#2299dd 52%,#5fd0ff 100%)}
+  #hostBanner{margin-top:12px;padding:8px 12px;border-radius:14px;font-size:14px;font-weight:600;text-align:center;
+    background:rgba(120,220,120,.25);border:1px solid rgba(40,150,40,.35)}
+  #hostBanner b{letter-spacing:3px;color:#1477c4;font-size:17px}
+  #hostBanner button{width:auto;margin:6px 0 0;padding:5px 16px;font-size:13px}
+  #netWait{position:absolute;left:50%;top:84px;transform:translateX(-50%);padding:6px 16px;border-radius:999px;font-size:14px;font-weight:600;white-space:nowrap}
   #mpStatus{font-size:13px;margin-top:6px;min-height:0;font-weight:600;color:#1477c4}
   #mpStatus.err{color:#c0283c}
   #roomBadge{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);padding:6px 16px;border-radius:999px;font-size:13px;font-weight:600;white-space:nowrap}
@@ -195,6 +200,7 @@
   <canvas id="radar" class="glass"></canvas>
   <div id="dangerTxt" class="hidden">⚠ Danger behind you!</div>
   <div id="roomBadge" class="glass hidden"></div>
+  <div id="netWait" class="glass hidden">⏳ Waiting for the host's game… ask them to keep it open on screen</div>
   <div id="keys" class="glass"><span><kbd>WASD</kbd>Fly</span><span><kbd>Mouse</kbd>Look</span><span><kbd>R</kbd><kbd>F</kbd>Up / down</span>
     <span><kbd>Space</kbd>Split</span><span><kbd>E</kbd>Drop</span><span><kbd>Shift</kbd>Boost</span><span><kbd>Esc</kbd>Pause</span></div>
   <div id="lb" class="glass"><h3>Leaderboard</h3><div id="lbrows"></div></div>
@@ -226,8 +232,9 @@
     <label>Class</label>
     <div class="classes" id="classes"></div>
     <div id="clsDesc"></div>
+    <div id="hostBanner" class="hidden"></div>
     <button class="primary" id="playBtn">PLAY</button>
-    <div class="btnrow2"><button id="hostBtn">👥 Host game</button><button id="joinBtn">🔗 Join game</button></div>
+    <div class="btnrow2" id="mpBtns"><button id="hostBtn">👥 Host game</button><button id="joinBtn">🔗 Join game</button></div>
     <div id="joinRow" class="hidden"><input id="codeIn" maxlength="5" placeholder="Room code" autocomplete="off" autocapitalize="characters"><button id="joinGo">Join</button></div>
     <div id="mpStatus"></div>
     <div class="btnrow2"><button id="howBtn">How to play</button><button id="notesBtn">Patch notes</button></div>
@@ -941,6 +948,7 @@ setDiff(diffKey);
 
 // ---------- patch notes (newest first; the first entry is the current version) ----------
 const PATCH_NOTES = [
+ {"v": "0.15", "title": "Better Rooms", "notes": ["The host can go back to the main menu without ending the game: the room keeps running for everyone", "\"Back to the game\" puts the host straight back into the same world; End room is a separate button", "The host's game keeps running even if they switch tabs or apps on a computer (to send the code, say)", "Joining shows each step (contacting the server, finding the room, loading the world) instead of hanging", "Clear messages when a room can't be reached, with what to try", "A \"waiting for the host\" notice appears if the host's game stops sending updates"]},
  {"v": "0.14", "title": "Same World", "notes": ["When the host dies, the game keeps going for everyone and the host respawns into the same world", "Death screen in multiplayer: Respawn puts you back into the same game", "Ending a room now takes a second tap, so the host can't close everyone's game by accident", "Players see Leave room instead of Main menu while in a room"]},
  {"v": "0.13", "title": "Multiplayer", "notes": ["Play with friends: press Host game to open a room, then share the 5-letter room code", "Friends press Join game and type the code to jump into your world, bots and all", "Up to 8 players per room, each with their own name, colour and class", "Room code shown on screen and in the pause menu so it's easy to share", "When someone fills the box, everyone sees who won and a new round starts automatically", "Freshly spawned players are safe for 2 seconds", "No accounts or servers needed: players connect directly to the host's browser"]},
  {"v": "0.12", "title": "Bubble Bliss", "notes": ["The game has a name: Bubble Bliss (formerly Blob Arena 3D)", "Your name, colour, class and best score carry over"]},
@@ -1073,24 +1081,48 @@ $('menuBtn').onclick = () => leaveClick('menuBtn');
 // in a hosted room, leaving ends the game for everyone, so the host has to tap twice
 function leaveClick(id) {
   const b = $(id);
+  if (net.role === 'host' && id !== 'endRoomBtn') { hostToMenu(); return; } // menu, but the room stays open
   if (net.role !== 'host' || b.dataset.armed) { delete b.dataset.armed; toMainMenu(); return; }
   b.dataset.armed = '1'; b.textContent = 'Tap again to end it for everyone';
-  setTimeout(() => { delete b.dataset.armed; setLeaveLabels(); }, 3000);
+  setTimeout(() => { if (!b.isConnected) return; delete b.dataset.armed; b.textContent = 'End room'; }, 3000);
 }
 function setLeaveLabels() {
-  const label = net.role === 'host' ? 'End room' : net.role === 'client' ? 'Leave room' : 'Main menu';
+  const label = net.role === 'client' ? 'Leave room' : 'Main menu';
   $('quitBtn').textContent = label; $('menuBtn').textContent = label;
   $('againBtn').textContent = net.role === 'solo' ? 'Play again' : 'Respawn';
   $('overNote').classList.toggle('hidden', net.role === 'solo');
   $('overNote').textContent = net.role === 'host'
-    ? "You're the host: the game keeps going while you're dead. Respawn to jump back into the same world."
+    ? "You're the host: the game keeps going while you're dead or on the main menu. Respawn to jump back into the same world."
     : 'The game keeps going. Respawn to jump back in.';
 }
 $('winAgain').onclick = start;
 $('winMenuBtn').onclick = toMainMenu;
 
+// the host can step out to the menu without ending the room: the world keeps running for everyone
+function hostToMenu() {
+  document.exitPointerLock?.();
+  if (me) { for (const c of [...me.cells]) killCell(c); cells = cells.filter(c => c.alive); me.alive = false; owners = owners.filter(o => o !== me); }
+  state = 'menu';
+  $('bestTxt').textContent = bestText();
+  show('mainMenu');
+  updateMenuForRoom();
+}
+function updateMenuForRoom() {
+  const hosting = net.role === 'host';
+  $('hostBanner').classList.toggle('hidden', !hosting);
+  $('mpBtns').classList.toggle('hidden', hosting);
+  $('joinRow').classList.add('hidden');
+  $('playBtn').textContent = hosting ? 'BACK TO THE GAME' : 'PLAY';
+  if (hosting) {
+    const n = net.remotes.size;
+    $('hostBanner').innerHTML = `🟢 Hosting room <b>${net.code}</b> · ${n} friend${n === 1 ? '' : 's'} in it<br>` +
+      `<small>The game keeps running while you're here.</small><br><button id="endRoomBtn">End room</button>`;
+    $('endRoomBtn').onclick = () => leaveClick('endRoomBtn');
+  }
+}
 function toMainMenu() {
   leaveNet();
+  updateMenuForRoom();
   state = 'menu'; document.exitPointerLock?.();
   roundOver = false; winnerOwner = null;
   clearWorld(); me = null;
@@ -1547,6 +1579,14 @@ const r1 = v => Math.round(v * 10) / 10;
 function loadScript(src) {
   return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
 }
+function peerErrorText(type) {
+  if (['server-error', 'network', 'socket-error', 'socket-closed', 'disconnected'].includes(type))
+    return "Couldn't reach the matchmaking server. It may be busy or blocked on this network. Try again in a minute.";
+  if (type === 'browser-incompatible') return "This browser doesn't support multiplayer. Try Chrome, Edge, Firefox or Safari.";
+  if (type === 'webrtc') return "Couldn't connect to the host. One of your networks may block direct connections. Try another network.";
+  return `Connection problem (${type}). Try again.`;
+}
+const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
 async function loadPeerJS() { // only fetched when someone hosts or joins, so solo play never depends on it
   if (window.Peer) return;
   try { await loadScript('https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js'); }
@@ -1593,10 +1633,14 @@ function leaveNet() {
 
 // ----- host -----
 async function hostGame(attempt = 0) {
+  mpStatus('Loading multiplayer…');
+  try { await withTimeout(loadPeerJS(), 12000); } catch (e) { mpStatus("Couldn't load multiplayer. Check your internet connection.", true); return; }
   mpStatus('Opening a room…');
-  try { await loadPeerJS(); } catch (e) { mpStatus("Couldn't load multiplayer. Check your internet connection.", true); return; }
   const code = makeCode(), peer = new Peer(PEER_PREFIX + code, peerOptions());
+  let opened = false;
+  setTimeout(() => { if (!opened) { mpStatus("Couldn't reach the matchmaking server. It may be busy or blocked on this network. Try again in a minute.", true); try { peer.destroy(); } catch (e) {} } }, 12000);
   peer.on('open', () => {
+    opened = true;
     Object.assign(net, {role: 'host', peer, code, started: false});
     mpStatus('');
     start();
@@ -1605,7 +1649,7 @@ async function hostGame(attempt = 0) {
   peer.on('connection', conn => hostAccept(conn));
   peer.on('error', err => {
     if (err.type === 'unavailable-id' && attempt < 3) { peer.destroy(); hostGame(attempt + 1); return; } // code taken: pick another
-    if (net.role !== 'host') mpStatus(`Couldn't open a room (${err.type}).`, true);
+    if (net.role !== 'host') { opened = true; mpStatus(peerErrorText(err.type), true); }
   });
   peer.on('disconnected', () => { try { peer.reconnect(); } catch (e) {} }); // keep the room code reachable for new joiners
 }
@@ -1627,7 +1671,7 @@ function hostOnData(conn, msg) {
     else respawnHuman(o);
     conn.send({t: 'welcome', id: o.id, code: net.code});
     sendPellets(conn);
-    updateRoomBadge();
+    updateRoomBadge(); if (state === 'menu') updateMenuForRoom();
     return;
   }
   if (!o) return;
@@ -1648,7 +1692,7 @@ function hostDrop(conn) {
   cells = cells.filter(c => c.alive);
   o.alive = false; owners = owners.filter(x => x !== o);
   net.remotes.delete(conn.peer);
-  updateRoomBadge();
+  updateRoomBadge(); if (state === 'menu') updateMenuForRoom();
 }
 function hostSnapshot() {
   const msg = {t: 's',
@@ -1662,7 +1706,7 @@ function hostSnapshot() {
 }
 function hostNewRound() {
   if (net.role !== 'host') return;
-  const humans = [me, ...net.remotes.values()].filter(Boolean);
+  const humans = [state === 'menu' ? null : me, ...net.remotes.values()].filter(Boolean);
   clearWorld();
   roundOver = false; winnerOwner = null;
   for (const o of humans) { o.cells = []; respawnHuman(o); }
@@ -1672,33 +1716,57 @@ function hostNewRound() {
   netBroadcast({t: 'round'});
   for (const o of net.remotes.values()) if (o.conn && o.conn.open) sendPellets(o.conn);
   peak = me ? totalMass(me) : 0;
-  enterPlay();
-  updateRoomBadge();
+  if (state !== 'menu') enterPlay();
+  updateRoomBadge(); updateMenuForRoom();
 }
+
+// browsers freeze requestAnimationFrame in background tabs; a worker's timer keeps ticking, so the host's
+// world (and the updates friends depend on) carry on even if the host switches tabs to send the code
+let bgLast = performance.now();
+try {
+  const ticker = new Worker(URL.createObjectURL(new Blob(['setInterval(() => postMessage(0), 50)'], {type: 'text/javascript'})));
+  ticker.onmessage = () => {
+    const now = performance.now();
+    if (net.role !== 'host' || !document.hidden) { bgLast = now; return; }
+    let dt = Math.min(0.25, (now - bgLast) / 1000); bgLast = now;
+    while (dt > 0) { const step = Math.min(0.033, dt); update(step); dt -= step; }
+    if (net.remotes.size) hostSnapshot();
+  };
+} catch (e) {}
 
 // ----- client -----
 async function joinGame() {
   const code = $('codeIn').value.trim().toUpperCase();
   if (code.length !== 5) { mpStatus('Room codes are 5 letters.', true); return; }
-  mpStatus('Connecting…');
-  try { await loadPeerJS(); } catch (e) { mpStatus("Couldn't load multiplayer. Check your internet connection.", true); return; }
+  if (net.joining) return;
+  net.joining = true; $('joinGo').disabled = true;
+  const done = () => { net.joining = false; $('joinGo').disabled = false; };
+  mpStatus('Loading multiplayer…');
+  try { await withTimeout(loadPeerJS(), 12000); }
+  catch (e) { mpStatus("Couldn't load multiplayer. Check your internet connection.", true); done(); return; }
   const name = $('nameIn').value.trim().slice(0, 14) || 'Player';
   store.set('blob3d_name', $('nameIn').value.trim());
+  mpStatus('Contacting the matchmaking server…');
   const peer = new Peer(undefined, peerOptions());
-  let welcomed = false;
-  const fail = text => { if (welcomed) return; mpStatus(text, true); try { peer.destroy(); } catch (e) {} };
+  let welcomed = false, opened = false;
+  const fail = text => { if (welcomed) return; mpStatus(text, true); done(); try { peer.destroy(); } catch (e) {} };
+  setTimeout(() => { if (!opened) fail("Couldn't reach the matchmaking server. It may be busy or blocked on this network. Try again in a minute."); }, 12000);
   peer.on('open', () => {
+    opened = true;
+    mpStatus(`Looking for room ${code}…`);
     const conn = peer.connect(PEER_PREFIX + code, {reliable: true, serialization: 'json'});
-    setTimeout(() => fail("Couldn't reach that room. Check the code, or the host's network may block direct connections."), 15000);
-    conn.on('open', () => conn.send({t: 'hello', name, hue: myHue, cls: clsKey}));
-    conn.on('data', msg => { if (msg.t === 'welcome') welcomed = true; clientOnData(msg); });
+    setTimeout(() => fail(conn.open
+      ? "Reached the host, but their game didn't answer. Ask them to keep the game open on screen and try again."
+      : "Couldn't connect to the host. One of your networks may block direct connections (common on school/work Wi-Fi). Try mobile data or another network."), 20000);
+    conn.on('open', () => { mpStatus('Connected! Loading the world…'); conn.send({t: 'hello', name, hue: myHue, cls: clsKey}); });
+    conn.on('data', msg => { if (msg.t === 'welcome') { welcomed = true; done(); } clientOnData(msg); });
     conn.on('close', () => clientLost());
     conn.on('error', () => clientLost());
     net.peer = peer; net.conn = conn;
   });
   peer.on('error', err => {
     if (err.type === 'peer-unavailable') fail('No room with that code. Check it and try again.');
-    else if (!welcomed) fail(`Connection problem (${err.type}).`);
+    else if (!welcomed) fail(peerErrorText(err.type));
     else clientLost();
   });
 }
@@ -1716,7 +1784,7 @@ function clientOnData(msg) {
   if (msg.t === 'full') { mpStatus('That room is full.', true); return; }
   if (msg.t === 'welcome') {
     clearClientWorld();
-    Object.assign(net, {role: 'client', myId: msg.id, code: msg.code});
+    Object.assign(net, {role: 'client', myId: msg.id, code: msg.code, lastSnap: performance.now()});
     time = 0; peak = 0; yaw = Math.PI; pitch = 0.3;
     mpStatus('');
     unlockAudio();
@@ -1741,6 +1809,7 @@ function clientOnData(msg) {
   }
 }
 function applySnapshot(msg) {
+  net.lastSnap = performance.now();
   const seenO = new Set();
   for (const [id, name, hue, human, ck, boosting, bcd] of msg.o) {
     let o = ownersById.get(id);
@@ -1859,6 +1928,7 @@ function frame(now) {
   const dt = Math.min(0.033, (now - last) / 1000); last = now;
   if (net.role === 'client') clientUpdate(dt);
   else if (net.role === 'host' || (state !== 'paused' && !fx6Active)) update(dt); // a hosted world never pauses
+  $('netWait').classList.toggle('hidden', !(net.role === 'client' && performance.now() - (net.lastSnap || 0) > 3000));
   if (net.role === 'host' && (net.sendT -= dt) <= 0 && net.remotes.size) { net.sendT = 0.05; hostSnapshot(); }
   if (state === 'play' && me && me.alive && me.cells.length) { updateHUD(dt); drawRadar(); }
   else if (!specDrag) yaw += dt * (state === 'over' ? 0.08 : 0.15);

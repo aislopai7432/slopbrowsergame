@@ -2,7 +2,16 @@
 
 Newest first.
 
-## v0.14: Same World (current)
+## v0.15: Better Rooms (current)
+
+- The host can go back to the main menu without ending the game: the room keeps running for everyone
+- "Back to the game" puts the host straight back into the same world; End room is a separate button
+- The host's game keeps running even if they switch tabs or apps on a computer (to send the code, say)
+- Joining shows each step (contacting the server, finding the room, loading the world) instead of hanging
+- Clear messages when a room can't be reached, with what to try
+- A "waiting for the host" notice appears if the host's game stops sending updates
+
+## v0.14: Same World
 
 - When the host dies, the game keeps going for everyone and the host respawns into the same world
 - Death screen in multiplayer: Respawn puts you back into the same game
