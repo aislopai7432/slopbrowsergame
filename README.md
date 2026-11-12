@@ -22,7 +22,7 @@ You fly freely in 3D. You can eat any blob with 8% less mass than you just by bu
 
 ## Goal
 
-Grow big enough to fill the box and you win. The radar in the top left shows nearby blobs: red can eat you, green you can eat, and arrows mean above or below you. The screen edges glow red when something dangerous is close.
+Grow until you physically fill the whole box (as wide as the box, pressing on every wall) and you win. The radar in the top left shows nearby blobs: red can eat you, green you can eat, and arrows mean above or below you. The screen edges glow red when something dangerous is close.
 
 ## Classes
 

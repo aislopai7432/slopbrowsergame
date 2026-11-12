@@ -197,7 +197,7 @@
       <div><b>Shift</b> Speed boost, costs a little mass</div>
       <div><b>Esc / P</b> Pause</div>
       <p><b>On a phone:</b> drag the left side of the screen to fly, drag the right side to look around, and use the buttons for split, drop, boost and up/down. Landscape works best.</p>
-      <p><b>Goal:</b> grow big enough to fill the box and you win. The radar (top left) shows red blobs that can eat you and green ones you can eat; ▲▼ means above or below you.</p>
+      <p><b>Goal:</b> grow until you physically fill the whole box, pressing on every wall at once, and you win. The radar (top left) shows red blobs that can eat you and green ones you can eat; ▲▼ means above or below you.</p>
       <p>Eat the small pellets to grow. You can eat any blob even slightly smaller than you (8%) by bumping into it. Bots need to be 20% bigger than you. Bigger blobs are slower. Split cells pull back together and merge after a few seconds.</p>
     </div>
     <button class="primary" id="howBack">Back</button>
@@ -213,7 +213,7 @@
 <div id="winMenu" class="overlay hidden">
   <div class="panel glass">
     <h1><b>You win!</b></h1>
-    <div class="tag">You grew big enough to fill the whole box.</div>
+    <div class="tag">You grew so big you fill the entire box.</div>
     <div class="stat" id="winStats"></div>
     <div class="best" id="winBest"></div>
     <button class="primary" id="winAgain">Play again</button>
@@ -415,7 +415,13 @@ const pelletPos = [];
 const tmpM = new THREE.Matrix4(), tmpC = new THREE.Color();
 function placePellet(i) {
   const p = pelletPos[i] || (pelletPos[i] = new THREE.Vector3());
-  p.set((Math.random() * 2 - 1) * (A - 2), 1 + Math.random() * (H - 2), (Math.random() * 2 - 1) * (A - 2));
+  // respawn somewhere outside the player's blobs, so pellets don't pop up inside you and get eaten instantly
+  for (let tries = 0; tries < 8; tries++) {
+    p.set((Math.random() * 2 - 1) * (A - 2), 1 + Math.random() * (H - 2), (Math.random() * 2 - 1) * (A - 2));
+    let inside = false;
+    try { inside = !!(me && me.alive && me.cells.some(c => c.pos.distanceTo(p) < c.r + 3)); } catch (e) {} // `me` doesn't exist yet at startup
+    if (!inside) break;
+  }
   tmpM.makeTranslation(p.x, p.y, p.z); pellets.setMatrixAt(i, tmpM);
   pellets.setColorAt(i, tmpC.setHSL(PELLET_HUES[Math.floor(Math.random() * PELLET_HUES.length)], 0.85, 0.55));
   pellets.instanceMatrix.needsUpdate = true; pellets.instanceColor.needsUpdate = true;
@@ -450,8 +456,11 @@ const CLASSES = {
              mods: {ghost: true, boostCost: 0.15}},
 };
 let cls = {...BASE_CLASS};
-const WIN_R = H * 0.33;                       // radius at which you "fill the box"
+// you win when you're as wide as the whole box, i.e. you're pressing on every wall at once
+const WIN_R = A;
 const WIN_MASS = Math.pow(WIN_R / 0.55, 2);
+// pellets are worth more to you as you grow, so the late game doesn't drag
+const playerPelletValue = () => 1 + Math.min(9, Math.floor(totalMass(me) / 400));
 const canEat = (a, b) => {
   if (b.owner && b.owner.isPlayer) {
     if (cls.ghost && b.owner.boost > 0) return false;  // ghost: untouchable while boosting
@@ -542,12 +551,14 @@ function spawnBot() {
   const free = NAMES.filter(n => !used.has(n));
   const name = free.length ? free[Math.floor(Math.random() * free.length)] : 'Blob' + Math.floor(Math.random() * 99);
   const o = makeOwner(name, false);
-  let x = (Math.random() * 2 - 1) * (A - 8), y = 5 + Math.random() * (H - 10), z = (Math.random() * 2 - 1) * (A - 8);
-  if (me && me.cells.length) { const c = centroid(me); if (Math.hypot(x - c.x, y - c.y, z - c.z) < 30) { x = -x; z = -z; } }
   let m = 8 + Math.random() * (Math.random() < 0.2 ? 120 : 30);
   // as you grow, some new bots arrive at your scale so there's always food (and danger)
   if (me && me.alive && Math.random() < 0.45) m = Math.max(m, totalMass(me) * (0.15 + Math.random() * 0.9));
-  makeCell(o, m, x, y, z);
+  m = Math.min(m, Math.pow(Math.min(A, H / 2) * 0.6 / 0.55, 2)); // must fit in the box
+  // spawn anywhere in the box, including inside you (free food if you're big enough to eat it)
+  const rr = massToR(m);
+  const x = (Math.random() * 2 - 1) * (A - rr), y = rr + Math.random() * Math.max(0.1, H - 2 * rr), z = (Math.random() * 2 - 1) * (A - rr);
+  makeCell(o, m, x, y, z).spawnT = time; // remembered so a bot that appears on top of you can't eat you instantly
   return o;
 }
 
@@ -837,15 +848,35 @@ function start() {
   lockMouse();
 }
 
+// a "squircle" ball: a sphere pushed out into a rounded cube, used when you fill the whole box
+const boxyGeo = (() => {
+  const g = new THREE.SphereGeometry(1, 64, 48), p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+    const n = Math.pow(Math.abs(x) ** 8 + Math.abs(y) ** 8 + Math.abs(z) ** 8, 1 / 8);
+    p.setXYZ(i, x / n, y / n, z / n);
+  }
+  g.computeVertexNormals(); return g;
+})();
+
 function win() {
   state = 'won';
+  const main = me.cells.reduce((a, b) => (b.mass > a.mass ? b : a));
+  main.mesh.geometry = boxyGeo;
+  for (const ch of main.mesh.children) ch.geometry = boxyGeo;
+  // you fill the box: everything else in it gets absorbed
+  for (const c of [...cells]) if (c.owner !== me) { me.cells[0].mass += c.mass; killCell(c); }
+  cells = cells.filter(c => c.alive);
+  for (const o of owners) if (o !== me) o.alive = false;
+  owners = [me];
+  pitch = 0.35;
   peak = Math.max(peak, totalMass(me));
   if (peak > best) { best = Math.floor(peak); store.set('blob3d_best', best); }
   document.exitPointerLock?.();
   $('winStats').textContent = `Mass ${Math.floor(totalMass(me))} · took ${Math.floor(time / 60)}m ${Math.floor(time % 60)}s`;
   $('winBest').textContent = bestText();
   $('vignette').style.opacity = 0;
-  setTimeout(() => { if (state === 'won') show('winMenu'); }, 900);
+  setTimeout(() => { if (state === 'won') show('winMenu'); }, 2600);
 }
 
 let spectate = null;
@@ -869,6 +900,7 @@ function die(killer) {
   setTimeout(() => { if (state === 'over') show('overMenu'); }, 900);
 }
 
+let botSpawnT = 0;
 function update(dt) {
   time += dt;
 
@@ -910,7 +942,7 @@ function update(dt) {
     if (penF > 0) c.launch.y += penF * 30 * dt;
     if (penC > 0) c.launch.y -= penC * 30 * dt;
     c.pos.y = Math.max(sqY, Math.min(H - sqY, c.pos.y));
-    if (c.mass > 150) c.mass -= c.mass * 0.0012 * dt * (o.isPlayer ? cls.decay : 1);
+    if (c.mass > 150) c.mass -= Math.min(c.mass, 3000) * 0.0012 * dt * (o.isPlayer ? cls.decay : 1);
   }
 
   // --- same-owner: push apart until merge timer is up, then merge ---
@@ -938,11 +970,12 @@ function update(dt) {
   cells = cells.filter(c => c.alive);
 
   // --- eat pellets ---
+  const pv = me && me.alive ? playerPelletValue() : 1;
   for (const c of cells) {
     const reach = c.r + (c.owner.isPlayer ? cls.reach : BOT_PELLET_REACH), reach2 = reach * reach;
     for (let i = 0; i < N_PELLETS; i++) {
       const p = pelletPos[i], dx = p.x - c.pos.x, dy = p.y - c.pos.y, dz = p.z - c.pos.z;
-      if (dx * dx + dy * dy + dz * dz < reach2) { c.mass += 1; placePellet(i); }
+      if (dx * dx + dy * dy + dz * dz < reach2) { c.mass += c.owner.isPlayer ? pv : 1; placePellet(i); }
     }
   }
 
@@ -966,6 +999,7 @@ function update(dt) {
     if (!a.alive) continue;
     for (const b of cells) {
       if (b === a || !b.alive || b.owner === a.owner || !canEat(a, b)) continue;
+      if (b.owner.isPlayer && a.spawnT !== undefined && time - a.spawnT < 2) continue; // 2s spawn grace
       if (a.pos.distanceTo(b.pos) < eatRange(a, b)) {
         a.mass += b.mass; killCell(b);
         if (b.owner.cells.length === 0) b.owner.eatenBy = a.owner;
@@ -976,17 +1010,30 @@ function update(dt) {
   cells = cells.filter(c => c.alive);
   for (const o of owners) if (!o.cells.length) o.alive = false;
   owners = owners.filter(o => o.alive || o === me);
-  while (owners.filter(o => !o.isPlayer).length < N_BOTS) spawnBot();
+  // refill bots gradually (not instantly) so eating one doesn't immediately drop a fresh one next to you
+  botSpawnT -= dt;
+  if (state !== 'won' && botSpawnT <= 0 && owners.filter(o => !o.isPlayer).length < N_BOTS) { spawnBot(); botSpawnT = 0.5; }
   if (me && me.alive) peak = Math.max(peak, totalMass(me));
   if (state === 'play' && me && me.alive && totalMass(me) >= WIN_MASS) win();
 }
 
 const _up = new THREE.Vector3(), _right = new THREE.Vector3(), _toCam = new THREE.Vector3();
 function render3D(dt) {
-  if (me && me.alive) me.mat.opacity = cls.ghost && me.boost > 0 ? 0.15 : 0.55;
+  if (me && me.alive) me.mat.opacity = state === 'won' ? 0.75 : cls.ghost && me.boost > 0 ? 0.15 : 0.55;
+  scene.fog.near = state === 'won' ? 400 : 110; scene.fog.far = state === 'won' ? 900 : 330;
   _up.set(0, 1, 0).applyQuaternion(camera.quaternion);
   _right.set(1, 0, 0).applyQuaternion(camera.quaternion);
   for (const c of cells) {
+    if (state === 'won' && c.owner === me) {
+      const main = me.cells.reduce((a, b) => (b.mass > a.mass ? b : a));
+      const t = Math.min(1, dt * 2);
+      c.mesh.position.lerp(new THREE.Vector3(0, H / 2, 0), t);
+      c.mesh.scale.lerp(c === main ? new THREE.Vector3(A, H / 2, A) : new THREE.Vector3(0.01, 0.01, 0.01), t);
+      c.label.position.set(c.mesh.position.x, H + 4, c.mesh.position.z);
+      c.gloss.position.copy(c.mesh.position).addScaledVector(_up, H * 0.25).addScaledVector(_toCam.subVectors(camera.position, c.mesh.position).normalize(), A * 0.9);
+      c.gloss.scale.set(A * 0.6, A * 0.3, 1);
+      continue;
+    }
     c.shown = (c.shown || c.r) + (c.r - (c.shown || c.r)) * Math.min(1, dt * 12);
     const shown = c.shown;
     // how much each axis is squashed by the walls (1 = free)
@@ -1004,7 +1051,7 @@ function render3D(dt) {
     // keep the volume: squashed one way = wider the other ways
     const P = c.sq[0] * c.sq[1] * c.sq[2];
     const free = c.sq.filter(v => v >= 0.97).length;
-    const bulge = free ? Math.min(1.5, Math.pow(1 / P, 1 / free)) : 1;
+    const bulge = free ? Math.min(c.r > H * 0.5 ? 3 : 1.5, Math.pow(1 / P, 1 / free)) : 1;
     c.mesh.scale.set(...c.sq.map(v => shown * (v >= 0.97 ? v * bulge : v)));
     c.mesh.position.copy(c.pos);
     c.label.position.set(c.pos.x, c.pos.y + c.mesh.scale.y * 1.2 + 0.8, c.pos.z);
@@ -1024,10 +1071,13 @@ function updateCamera(dt) {
   if (!o && state === 'over') o = spectateTarget();
   if (!o) o = owners.filter(x => x.alive).reduce((a, b) => (totalMass(b) > totalMass(a) ? b : a), owners.find(x => x.alive));
   if (!o || !o.cells.length) return;
-  const c = centroid(o);
+  let c = centroid(o);
   const R = massToR(totalMass(o));
   let spread = 0; for (const cell of o.cells) spread = Math.max(spread, cell.pos.distanceTo(c) + cell.r);
-  camDist += ((10 + R * 3.2 + Math.max(0, spread - R) * 1.3) - camDist) * Math.min(1, dt * 3);
+  let want = 10 + R * 3.2 + Math.max(0, spread - R) * 1.3;
+  if (state === 'won') { c = new THREE.Vector3(0, H / 2, 0); want = A * 2.6; } // frame the whole filled box
+  else want = Math.min(want, A * 2.6);
+  camDist += (want - camDist) * Math.min(1, dt * 3);
   camFocus.lerp(c, Math.min(1, dt * 12));
   camera.position.set(
     camFocus.x + Math.sin(yaw) * Math.cos(pitch) * camDist,
@@ -1046,7 +1096,7 @@ function updateHUD(dt) {
   $('mass').textContent = 'Mass ' + Math.floor(totalMass(me)) + (me.cells.length > 1 ? `  (${me.cells.length} cells)` : '');
   $('rank').textContent = `Rank ${rank} / ${sorted.length} · ${CLASSES[clsKey].icon} ${CLASSES[clsKey].name}`;
   $('boostfill').style.width = (100 * (1 - me.boostCd / cls.boostCd)) + '%';
-  const fill = Math.min(1, totalMass(me) / WIN_MASS);
+  const fill = Math.min(1, massToR(totalMass(me)) / WIN_R); // how much of the box's width you span
   $('fillTxt').textContent = `Fill the box: ${Math.floor(fill * 100)}%`;
   $('fillfill').style.width = fill * 100 + '%';
   let html = sorted.slice(0, 8).map((x, i) => `<div class="${x.o === me ? 'me' : ''}"><span>${i + 1}. ${x.o.name}</span><span>${Math.floor(x.m)}</span></div>`).join('');
