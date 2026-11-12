@@ -1,5 +1,7 @@
 # Bubble Bliss
 
+*Soak up the sky.*
+
 A 3D, third-person take on agar.io that runs in the browser. Eat pellets to grow, eat blobs smaller than you, and run from bigger ones.
 
 ## Play
