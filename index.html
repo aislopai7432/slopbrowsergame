@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-<title>Blob Arena 3D</title>
+<title>Bubble Bliss</title>
 <style>
   :root{--ink:#0b3a5c}
   html,body{margin:0;height:100%;background:#8fd3ff;overflow:hidden;font-family:"Segoe UI","Frutiger","Frutiger Linotype","Myriad Pro",system-ui,sans-serif;color:var(--ink);user-select:none}
@@ -199,7 +199,7 @@
 </div>
 <div id="mainMenu" class="overlay">
   <div class="panel glass">
-    <h1><b>Blob</b> Arena 3D</h1>
+    <h1><b>Bubble</b> Bliss</h1>
     <div class="tag">Eat. Grow. Don't get eaten.</div>
     <label for="nameIn">Name</label>
     <input id="nameIn" maxlength="14" placeholder="You" autocomplete="off">
@@ -903,6 +903,7 @@ setDiff(diffKey);
 
 // ---------- patch notes (newest first; the first entry is the current version) ----------
 const PATCH_NOTES = [
+ {"v": "0.12", "title": "Bubble Bliss", "notes": ["The game has a name: Bubble Bliss (formerly Blob Arena 3D)", "Your name, colour, class and best score carry over"]},
  {"v": "0.11", "title": "Extra Aero", "notes": ["The arena now sits on a grassy island in a shiny blue lake, with the hills as islands", "Rainbow soap bubbles that shimmer as you look at them", "Sun rays and a lens flare when you look toward the sun", "Aurora light swooshes curving across the sky, like the old Windows wallpapers", "Soft glowing orbs floating up the screen", "Bluer, richer sky", "Tidier main menu that fits on shorter screens"]},
  {"v": "0.10", "title": "Slow Consume", "notes": ["Digestion: what you eat now absorbs into you gradually instead of all at once, so you swell steadily", "Eaten blobs stay visible inside you, shrinking away as you digest them", "Mass HUD shows how much you still have digesting", "The ending is much slower: from half the box to a win takes around a minute and a half at best", "Slower, bigger final swell when you fill the box", "Pellet size bonus reduced (now up to 4x)", "Bots can no longer grow bigger than the box"]},
  {
@@ -1323,6 +1324,7 @@ function updateCamera(dt) {
 }
 
 // ---------- rank-6 surprise ----------
+const FX6_ENABLED = false; // temporarily switched off
 let audioCtx = null, fx6Done = false, fx6Active = false, lastRank = 99;
 function unlockAudio() { // browsers only allow sound after a click/tap, so create it when Play is pressed
   try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); audioCtx.resume(); } catch (e) {}
@@ -1385,7 +1387,7 @@ function updateHUD(dt) {
   const sorted = owners.filter(o => o.alive).map(o => ({o, m: totalMass(o)})).sort((a, b) => b.m - a.m);
   const rank = sorted.findIndex(x => x.o === me) + 1;
   if (lastRank === null) lastRank = rank; // your starting rank doesn't count
-  if (!fx6Done && rank <= 6 && lastRank > 6) triggerFx6(); // first time you climb into 6th place
+  if (FX6_ENABLED && !fx6Done && rank <= 6 && lastRank > 6) triggerFx6(); // first time you climb into 6th place
   lastRank = rank;
   const dig = me.cells.reduce((s, c) => s + c.digest, 0);
   $('mass').innerHTML = 'Mass ' + Math.floor(totalMass(me)) + (dig >= 1 ? `<div style="color:#1b8a1b;font-size:13px;font-weight:600">+${Math.floor(dig)} digesting</div>` : '')

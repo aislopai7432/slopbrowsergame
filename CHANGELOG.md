@@ -2,7 +2,12 @@
 
 Newest first.
 
-## v0.11: Extra Aero (current)
+## v0.12: Bubble Bliss (current)
+
+- The game has a name: Bubble Bliss (formerly Blob Arena 3D)
+- Your name, colour, class and best score carry over
+
+## v0.11: Extra Aero
 
 - The arena now sits on a grassy island in a shiny blue lake, with the hills as islands
 - Rainbow soap bubbles that shimmer as you look at them
