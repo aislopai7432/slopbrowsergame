@@ -2,7 +2,13 @@
 
 Newest first.
 
-## v0.19: GPU Check (current)
+## v0.20: Fullscreen (current)
+
+- Fullscreen button on the main menu and in the pause menu
+- The game remembers it: once you've turned fullscreen on, Play puts you straight back into fullscreen
+- On Android phones, fullscreen also locks to landscape
+
+## v0.19: GPU Check
 
 - The game now asks your browser for your fast graphics card
 - If your browser isn't using your graphics card at all (hardware acceleration off), the main menu warns you and shows how to turn it on for your browser

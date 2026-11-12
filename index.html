@@ -252,7 +252,7 @@
     <div class="best" id="bestTxt"></div>
     <div id="gpuWarn" class="hidden"></div>
     <div id="verTxt"></div>
-    <button id="gfxBtn" class="smallbtn">⚙ Graphics: Auto</button>
+    <button id="gfxBtn" class="smallbtn">⚙ Graphics: Auto</button> <button id="fsBtn" class="smallbtn">⛶ Fullscreen</button>
   </div>
 </div>
 <div id="howMenu" class="overlay hidden">
@@ -286,7 +286,7 @@
     <h2>Paused</h2>
     <div id="pauseRoom" class="hidden"></div>
     <button class="primary" id="resumeBtn">Resume</button>
-    <div class="gfxrow"><button id="gfxBtn2" class="smallbtn">⚙ Graphics: Auto</button> <button id="fpsBtn" class="smallbtn">Show FPS: Off</button><div id="fpsTxt"></div></div>
+    <div class="gfxrow"><button id="gfxBtn2" class="smallbtn">⚙ Graphics: Auto</button> <button id="fpsBtn" class="smallbtn">Show FPS: Off</button> <button id="fsBtn2" class="smallbtn">⛶ Fullscreen</button><div id="fpsTxt"></div></div>
     <button id="quitBtn">Main menu</button>
   </div>
 </div>
@@ -1004,6 +1004,7 @@ setDiff(diffKey);
 
 // ---------- patch notes (newest first; the first entry is the current version) ----------
 const PATCH_NOTES = [
+ {"v": "0.20", "title": "Fullscreen", "notes": ["Fullscreen button on the main menu and in the pause menu", "The game remembers it: once you've turned fullscreen on, Play puts you straight back into fullscreen", "On Android phones, fullscreen also locks to landscape"]},
  {"v": "0.19", "title": "GPU Check", "notes": ["The game now asks your browser for your fast graphics card", "If your browser isn't using your graphics card at all (hardware acceleration off), the main menu warns you and shows how to turn it on for your browser", "Without a graphics card, Auto graphics switches to light settings so the game stays as playable as possible", "The pause menu shows which graphics card the game is running on"]},
  {"v": "0.18", "title": "High Refresh", "notes": ["The game now ticks at your monitor's refresh rate (up to 240 Hz), so 144/200/240 Hz screens get real high-fps movement, not blended 60", "Auto graphics now keeps full resolution (up to 4K) and only lowers it a little (never below 70%) if your PC can't keep up with your monitor", "Shadows redraw every other frame above 100 fps: looks the same, saves your graphics card work", "Show FPS toggle in the pause menu puts a live fps counter on screen", "Pause menu shows your fps, your screen's refresh rate and game tick rate"]},
  {"v": "0.17", "title": "Smooth Sailing", "notes": ["Fixed lag on gaming PCs with high-refresh monitors: the game logic now runs a steady 60 times a second, and drawing stays smooth in between", "Blobs only check pellets near them, making each game tick about 15x cheaper", "Graphics setting (main menu and pause menu): Auto, Fast or Pretty", "Auto keeps resolution sensible on big screens and lowers it a little if frames drop", "Fast turns off shadows and glass blur for older or busy computers", "The pause menu shows your fps and render resolution"]},
@@ -2055,6 +2056,33 @@ if (SOFTWARE_GL) {
 }
 applyGfx();
 setInterval(() => { if (state === 'paused' || showFps) updateFpsTxt(); }, 500);
+
+// ---------- fullscreen ----------
+const fsEl = document.documentElement;
+const fsSupported = !!(fsEl.requestFullscreen || fsEl.webkitRequestFullscreen);
+const isFs = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+function enterFullscreen() {
+  const req = fsEl.requestFullscreen || fsEl.webkitRequestFullscreen;
+  try {
+    const p = req.call(fsEl, {navigationUI: 'hide'});
+    if (p && p.then) p.then(() => { try { screen.orientation?.lock?.('landscape').catch(() => {}); } catch (e) {} }).catch(() => {});
+  } catch (e) {}
+}
+function exitFullscreen() { try { (document.exitFullscreen || document.webkitExitFullscreen).call(document); } catch (e) {} }
+function toggleFullscreen() {
+  if (isFs()) { store.set('blob3d_fs', '0'); exitFullscreen(); }
+  else { store.set('blob3d_fs', '1'); enterFullscreen(); }
+}
+function updateFsLabels() {
+  for (const id of ['fsBtn', 'fsBtn2']) { $(id).textContent = isFs() ? '⛶ Exit fullscreen' : '⛶ Fullscreen'; $(id).classList.toggle('hidden', !fsSupported); }
+}
+$('fsBtn').onclick = toggleFullscreen; $('fsBtn2').onclick = toggleFullscreen;
+document.addEventListener('fullscreenchange', updateFsLabels);
+document.addEventListener('webkitfullscreenchange', updateFsLabels);
+updateFsLabels();
+// if you chose fullscreen before, pressing Play / Host / Join (a click) puts you back in it
+for (const id of ['playBtn', 'againBtn', 'winAgain', 'hostBtn', 'joinGo', 'resumeBtn'])
+  $(id).addEventListener('click', () => { if (fsSupported && !isFs() && store.get('blob3d_fs') === '1') enterFullscreen(); });
 
 // ---------- loop ----------
 for (let i = 0; i < N_BOTS; i++) spawnBot(); // bots play on the title screen
