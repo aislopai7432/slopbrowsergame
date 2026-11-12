@@ -2,7 +2,17 @@
 
 Newest first.
 
-## v0.12: Bubble Bliss (current)
+## v0.13: Multiplayer (current)
+
+- Play with friends: press Host game to open a room, then share the 5-letter room code
+- Friends press Join game and type the code to jump into your world, bots and all
+- Up to 8 players per room, each with their own name, colour and class
+- Room code shown on screen and in the pause menu so it's easy to share
+- When someone fills the box, everyone sees who won and a new round starts automatically
+- Freshly spawned players are safe for 2 seconds
+- No accounts or servers needed: players connect directly to the host's browser
+
+## v0.12: Bubble Bliss
 
 - The game has a name: Bubble Bliss (formerly Blob Arena 3D)
 - Your name, colour, class and best score carry over

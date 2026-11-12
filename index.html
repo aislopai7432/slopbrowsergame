@@ -100,8 +100,20 @@
   #clsDesc .up{color:#1b8a1b} #clsDesc .down{color:#c0283c}
   #notesBtn{position:relative}
   .btnrow2{display:flex;gap:8px}
+  #joinRow{display:flex;gap:8px;margin-top:10px}
+  #joinRow input{text-transform:uppercase;letter-spacing:4px;text-align:center;font-weight:700}
+  #joinRow button{width:auto;margin:0;padding:10px 22px;color:#fff;text-shadow:0 1px 2px rgba(0,60,120,.6);border-color:#1b86c9;
+    background:linear-gradient(180deg,#c4f1ff 0%,#5cc8f5 48%,#2299dd 52%,#5fd0ff 100%)}
+  #mpStatus{font-size:13px;margin-top:6px;min-height:0;font-weight:600;color:#1477c4}
+  #mpStatus.err{color:#c0283c}
+  #roomBadge{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);padding:6px 16px;border-radius:999px;font-size:13px;font-weight:600;white-space:nowrap}
+  #roomBadge b{letter-spacing:3px;color:#1477c4}
+  body.touch #roomBadge{bottom:auto;top:62px}
+  #pauseRoom{margin:6px 0 2px;font-size:15px}
+  #pauseRoom b{letter-spacing:4px;color:#1477c4;font-size:22px}
   @media (max-height:820px){ #mainMenu .panel{padding:20px 28px} #mainMenu .panel label{margin-top:9px} #mainMenu .tag{margin-bottom:8px}
-    #mainMenu button.primary{margin-top:12px} #clsDesc{min-height:0;margin-top:5px} }
+    #mainMenu button.primary{margin-top:12px} #clsDesc{min-height:0;margin-top:5px;font-size:12px}
+    .cls{padding:4px 4px 3px} .cls .ic{font-size:16px} #mainMenu .btnrow2 button{padding:9px;margin-top:8px} #mainMenu h1{font-size:40px} }
   .newbadge{position:absolute;top:-6px;right:14px;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:700;color:#fff;
     background:linear-gradient(180deg,#ffc4cc 0%,#ff6b7d 48%,#e8384e 52%,#ff7d8e 100%);border:1px solid #c0283c}
   #notesList{text-align:left;max-height:min(58vh,460px);overflow-y:auto;padding-right:6px;touch-action:pan-y}
@@ -181,6 +193,7 @@
   </div>
   <canvas id="radar" class="glass"></canvas>
   <div id="dangerTxt" class="hidden">⚠ Danger behind you!</div>
+  <div id="roomBadge" class="glass hidden"></div>
   <div id="keys" class="glass"><span><kbd>WASD</kbd>Fly</span><span><kbd>Mouse</kbd>Look</span><span><kbd>R</kbd><kbd>F</kbd>Up / down</span>
     <span><kbd>Space</kbd>Split</span><span><kbd>E</kbd>Drop</span><span><kbd>Shift</kbd>Boost</span><span><kbd>Esc</kbd>Pause</span></div>
   <div id="lb" class="glass"><h3>Leaderboard</h3><div id="lbrows"></div></div>
@@ -213,6 +226,9 @@
     <div class="classes" id="classes"></div>
     <div id="clsDesc"></div>
     <button class="primary" id="playBtn">PLAY</button>
+    <div class="btnrow2"><button id="hostBtn">👥 Host game</button><button id="joinBtn">🔗 Join game</button></div>
+    <div id="joinRow" class="hidden"><input id="codeIn" maxlength="5" placeholder="Room code" autocomplete="off" autocapitalize="characters"><button id="joinGo">Join</button></div>
+    <div id="mpStatus"></div>
     <div class="btnrow2"><button id="howBtn">How to play</button><button id="notesBtn">Patch notes</button></div>
     <div class="best" id="bestTxt"></div>
     <div id="verTxt"></div>
@@ -229,6 +245,7 @@
       <div><b>E</b> Drop pellets of your mass (hold)</div>
       <div><b>Shift</b> Speed boost, costs a little mass</div>
       <div><b>Esc / P</b> Pause</div>
+      <p><b>Multiplayer:</b> press <i>Host game</i> to open a room and share the 5-letter code. Friends press <i>Join game</i> and type it in. The host's world (and bots) is shared with everyone, and the host needs to keep their tab open.</p>
       <p><b>On a phone:</b> drag the left side of the screen to fly, drag the right side to look around, and use the buttons for split, drop, boost and up/down. Landscape works best.</p>
       <p><b>Goal:</b> grow until you physically fill the whole box, pressing on every wall at once, and you win. The radar (top left) shows red blobs that can eat you and green ones you can eat; ▲▼ means above or below you.</p>
       <p>Eat the small pellets to grow. You can eat any blob even slightly smaller than you (8%) by bumping into it. Bots need to be 20% bigger than you. Bigger blobs are slower. Split cells pull back together and merge after a few seconds.</p>
@@ -246,14 +263,16 @@
 <div id="pauseMenu" class="overlay hidden">
   <div class="panel glass">
     <h2>Paused</h2>
+    <div id="pauseRoom" class="hidden"></div>
     <button class="primary" id="resumeBtn">Resume</button>
     <button id="quitBtn">Main menu</button>
   </div>
 </div>
 <div id="winMenu" class="overlay hidden">
   <div class="panel glass">
-    <h1><b>You win!</b></h1>
-    <div class="tag">You grew so big you fill the entire box.</div>
+    <h1 id="winTitle"><b>You win!</b></h1>
+    <div class="tag" id="winTag">You grew so big you fill the entire box.</div>
+    <div class="best" id="winNote"></div>
     <div class="stat" id="winStats"></div>
     <div class="best" id="winBest"></div>
     <button class="primary" id="winAgain">Play again</button>
@@ -276,6 +295,8 @@
 <script>
 // ---------- setup ----------
 const IS_TOUCH = matchMedia('(pointer: coarse)').matches;
+// multiplayer: 'solo', 'host' (runs the world and streams it) or 'client' (shows the host's world)
+const net = {role: 'solo', peer: null, conn: null, remotes: new Map(), code: '', myId: null, started: false, sendT: 0, dirtyPellets: new Set()};
 const A = 75;  // half-width of the arena
 const H = 85;  // arena height: you can fly anywhere from the grass up to here
 const renderer = new THREE.WebGLRenderer({antialias: true});
@@ -513,6 +534,11 @@ function placePellet(i) {
     try { inside = !!(me && me.alive && me.cells.some(c => c.pos.distanceTo(p) < c.r + 3)); } catch (e) {} // `me` doesn't exist yet at startup
     if (!inside) break;
   }
+  if (net.role === 'host') net.dirtyPellets.add(i);
+  setPelletMatrix(i);
+}
+function setPelletMatrix(i) {
+  const p = pelletPos[i];
   tmpM.makeTranslation(p.x, p.y, p.z); pellets.setMatrixAt(i, tmpM);
   pellets.setColorAt(i, tmpC.setHSL(PELLET_HUES[Math.floor(Math.random() * PELLET_HUES.length)], 0.85, 0.55));
   pellets.instanceMatrix.needsUpdate = true; pellets.instanceColor.needsUpdate = true;
@@ -546,12 +572,14 @@ const CLASSES = {
   ghost:    {icon: '👻', name: 'Ghost', up: 'Untouchable while boosting', down: 'Boosting costs 3x the mass',
              mods: {ghost: true, boostCost: 0.15}},
 };
-let cls = {...BASE_CLASS};
+const classFor = key => ({...BASE_CLASS, ...(CLASSES[key] || CLASSES.balanced).mods});
+// bots play by the plain rules
+const BOT_CLASS = {...BASE_CLASS, eatRatio: EAT_RATIO, defense: EAT_RATIO, reach: BOT_PELLET_REACH, boostCd: 2.5, boostCost: 0.05};
 // you win when you're as wide as the whole box, i.e. you're pressing on every wall at once
 const WIN_R = A;
 const WIN_MASS = Math.pow(WIN_R / 0.55, 2);
 // pellets are worth more to you as you grow, so the late game doesn't drag
-const playerPelletValue = () => 1 + Math.min(3, Math.floor(totalMass(me) / 1500));
+const playerPelletValue = o => 1 + Math.min(3, Math.floor(totalMass(o) / 1500));
 // digestion: what you eat is absorbed gradually, at most this fraction of your mass per second,
 // so you swell steadily instead of jumping straight to full size
 const DIGEST_RATE = 0.015, DIGEST_MIN = 4;
@@ -559,10 +587,10 @@ const DIGEST_RATE = 0.015, DIGEST_MIN = 4;
 function feed(c, amount) { if (c.owner.isPlayer) c.digest += amount; else c.mass += amount; }
 const canEat = (a, b) => {
   if (b.owner && b.owner.isPlayer) {
-    if (cls.ghost && b.owner.boost > 0) return false;  // ghost: untouchable while boosting
-    return a.mass > b.mass * cls.defense;               // tank / speed change how safe you are
+    if (b.owner.cls.ghost && b.owner.boost > 0) return false; // ghost: untouchable while boosting
+    return a.mass > b.mass * b.owner.cls.defense;             // tank / speed change how safe a player is
   }
-  return a.mass > b.mass * (a.owner && a.owner.isPlayer ? cls.eatRatio : EAT_RATIO);
+  return a.mass > b.mass * (a.owner ? a.owner.cls.eatRatio : EAT_RATIO);
 };
 // how close a target's centre must be: bots must cover the centre, you only need to overlap it halfway
 const eatRange = (a, b) => a.owner.isPlayer ? a.r + b.r * 0.5 : a.r;
@@ -577,7 +605,8 @@ const DIFFS = {
 };
 let diff = DIFFS.normal, N_BOTS = diff.bots;
 const sphereGeo = new THREE.SphereGeometry(1, 32, 24);
-let owners = [], cells = [], ejecta = [], me = null;
+let owners = [], cells = [], ejecta = [], me = null, nextOwnerId = 1, nextCellId = 1;
+let roundOver = false, winnerOwner = null; // set when someone fills the box
 
 function labelMaterial(text) {
   const c = document.createElement('canvas'); c.width = 256; c.height = 64;
@@ -606,7 +635,8 @@ const glossTex = canvasTex(128, 128, (g, w) => {
 const glossMat = new THREE.SpriteMaterial({map: glossTex, transparent: true, depthWrite: false});
 
 function makeOwner(name, isPlayer, hue = Math.random()) {
-  const o = {name, isPlayer, hue, cells: [], dir: new THREE.Vector3(), boost: 0, boostCd: 0, think: 0, alive: true,
+  const o = {id: nextOwnerId++, name, isPlayer, hue, cells: [], dir: new THREE.Vector3(), boost: 0, boostCd: 0, think: 0, alive: true,
+    cls: isPlayer ? classFor('balanced') : BOT_CLASS, clsKey: isPlayer ? 'balanced' : '',
     // translucent jelly-glass, like the Windows Live Messenger buddies
     mat: new THREE.MeshPhysicalMaterial({color: new THREE.Color().setHSL(hue, 0.95, 0.5),
       emissive: new THREE.Color().setHSL(hue, 1, 0.18), roughness: 0.05, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.03,
@@ -625,7 +655,7 @@ function makeCell(owner, mass, x, y, z) {
   const r = massToR(mass);
   mesh.scale.setScalar(r);
   scene.add(mesh, label, gloss);
-  const c = {owner, mass, mesh, label, gloss, r, alive: true, mergeT: 0,
+  const c = {id: nextCellId++, owner, mass, mesh, label, gloss, r, alive: true, mergeT: 0,
     pos: new THREE.Vector3(x, y, z), vel: new THREE.Vector3(), launch: new THREE.Vector3(), digest: 0};
   owner.cells.push(c); cells.push(c); return c;
 }
@@ -649,7 +679,8 @@ function spawnBot() {
   const o = makeOwner(name, false);
   let m = 8 + Math.random() * (Math.random() < 0.2 ? 120 : 30);
   // as you grow, some new bots arrive at your scale so there's always food (and danger)
-  if (me && me.alive && Math.random() < 0.45) m = Math.max(m, totalMass(me) * (0.15 + Math.random() * 0.9));
+  const humans = owners.filter(o => o.isPlayer && o.alive), ref = humans[Math.floor(Math.random() * humans.length)];
+  if (ref && Math.random() < 0.45) m = Math.max(m, totalMass(ref) * (0.15 + Math.random() * 0.9));
   m = Math.min(m, Math.pow(Math.min(A, H / 2) * 0.6 / 0.55, 2)); // must fit in the box
   // spawn anywhere in the box, including inside you (free food if you're big enough to eat it)
   const rr = massToR(m);
@@ -661,21 +692,21 @@ function spawnBot() {
 // ---------- actions ----------
 function aimDir(o) {
   if (o.dir.lengthSq()) return o.dir.clone();
-  return camForward();
+  return o === me ? camForward() : (o.aim ? o.aim.clone() : new THREE.Vector3(0, 0, -1)); // remote players send their aim
 }
 
 function split(o) {
   const d = aimDir(o);
   for (const c of [...o.cells]) {
-    if (o.cells.length >= (o.isPlayer ? cls.maxCells : MAX_CELLS)) break;
+    if (o.cells.length >= o.cls.maxCells) break;
     if (c.mass < MIN_SPLIT) continue;
     c.mass /= 2; c.digest /= 2; c.r = massToR(c.mass);
     const n = makeCell(o, c.mass, c.pos.x + d.x * c.r * 0.5, c.pos.y + d.y * c.r * 0.5, c.pos.z + d.z * c.r * 0.5);
     n.digest = c.digest;
     n.mesh.scale.setScalar(c.r);
-    n.launch.copy(d).multiplyScalar((28 + c.r * 3) * (o.isPlayer ? cls.splitLaunch : 1));
+    n.launch.copy(d).multiplyScalar((28 + c.r * 3) * o.cls.splitLaunch);
     n.vel.copy(c.vel);
-    c.mergeT = n.mergeT = (9 + c.mass * 0.02) * (o.isPlayer ? cls.merge : 1);
+    c.mergeT = n.mergeT = (9 + c.mass * 0.02) * o.cls.merge;
   }
 }
 
@@ -694,8 +725,8 @@ function eject(o) {
 
 function boost(o) {
   if (!o || o.boostCd > 0 || totalMass(o) < 14) return;
-  o.boost = 0.35; o.boostCd = o.isPlayer ? cls.boostCd : 2.5;
-  for (const c of o.cells) c.mass *= 1 - (o.isPlayer ? cls.boostCost : 0.05);
+  o.boost = 0.35; o.boostCd = o.cls.boostCd;
+  for (const c of o.cells) c.mass *= 1 - o.cls.boostCost;
 }
 
 // ---------- bot AI ----------
@@ -734,19 +765,24 @@ function think(o) {
 const keys = {};
 let yaw = Math.PI, pitch = 0.6, locked = false, dragging = false;
 addEventListener('keydown', e => {
-  if (e.target.tagName === 'INPUT') { if (e.code === 'Enter') start(); return; }
+  if (e.target.tagName === 'INPUT') { if (e.code === 'Enter' && e.target.id === 'nameIn') start(); return; }
   if (keys[e.code]) return; // ignore key repeat
   keys[e.code] = true;
   if (e.code === 'Escape' || e.code === 'KeyP') { if (state === 'play') pause(); else if (state === 'paused') resume(); return; }
   if (e.code === 'Enter' && (state === 'menu' || state === 'over')) { start(); return; }
   if (state !== 'play') return;
-  if (e.code === 'Space') { e.preventDefault(); split(me); }
-  if (e.code === 'KeyE' || e.code === 'KeyQ') eject(me);
-  if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') boost(me);
+  if (e.code === 'Space') { e.preventDefault(); act('split'); }
+  if (e.code === 'KeyE' || e.code === 'KeyQ') act('eject');
+  if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') act('boost');
 });
 addEventListener('keyup', e => keys[e.code] = false);
 // hold E to keep dropping mass
-setInterval(() => { if (state === 'play' && (keys.KeyE || keys.KeyQ)) eject(me); }, 110);
+setInterval(() => { if (state === 'play' && (keys.KeyE || keys.KeyQ)) act('eject'); }, 110);
+function act(k) {
+  if (!me || !me.alive || state !== 'play') return;
+  if (net.role === 'client') netSend({t: 'act', k});
+  else ({split, eject, boost})[k](me);
+}
 let specDrag = null;
 renderer.domElement.addEventListener('pointerdown', e => {
   if (state !== 'over') return;
@@ -828,9 +864,9 @@ function touchButton(id, onDown, holdKey) {
   const up = () => { el.classList.remove('on'); if (holdKey) keys[holdKey] = false; };
   el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); el.addEventListener('pointerleave', up);
 }
-touchButton('tSplit', () => split(me));
-touchButton('tDrop', () => eject(me), 'KeyE');
-touchButton('tBoost', () => boost(me));
+touchButton('tSplit', () => act('split'));
+touchButton('tDrop', () => act('eject'), 'KeyE');
+touchButton('tBoost', () => act('boost'));
 touchButton('tUp', null, 'KeyR');
 touchButton('tDown', null, 'KeyF');
 touchButton('tPause', () => pause());
@@ -903,6 +939,7 @@ setDiff(diffKey);
 
 // ---------- patch notes (newest first; the first entry is the current version) ----------
 const PATCH_NOTES = [
+ {"v": "0.13", "title": "Multiplayer", "notes": ["Play with friends: press Host game to open a room, then share the 5-letter room code", "Friends press Join game and type the code to jump into your world, bots and all", "Up to 8 players per room, each with their own name, colour and class", "Room code shown on screen and in the pause menu so it's easy to share", "When someone fills the box, everyone sees who won and a new round starts automatically", "Freshly spawned players are safe for 2 seconds", "No accounts or servers needed: players connect directly to the host's browser"]},
  {"v": "0.12", "title": "Bubble Bliss", "notes": ["The game has a name: Bubble Bliss (formerly Blob Arena 3D)", "Your name, colour, class and best score carry over"]},
  {"v": "0.11", "title": "Extra Aero", "notes": ["The arena now sits on a grassy island in a shiny blue lake, with the hills as islands", "Rainbow soap bubbles that shimmer as you look at them", "Sun rays and a lens flare when you look toward the sun", "Aurora light swooshes curving across the sky, like the old Windows wallpapers", "Soft glowing orbs floating up the screen", "Bluer, richer sky", "Tidier main menu that fits on shorter screens"]},
  {"v": "0.10", "title": "Slow Consume", "notes": ["Digestion: what you eat now absorbs into you gradually instead of all at once, so you swell steadily", "Eaten blobs stay visible inside you, shrinking away as you digest them", "Mass HUD shows how much you still have digesting", "The ending is much slower: from half the box to a win takes around a minute and a half at best", "Slower, bigger final swell when you fill the box", "Pellet size bonus reduced (now up to 4x)", "Bots can no longer grow bigger than the box"]},
@@ -1034,7 +1071,9 @@ $('winAgain').onclick = start;
 $('winMenuBtn').onclick = toMainMenu;
 
 function toMainMenu() {
+  leaveNet();
   state = 'menu'; document.exitPointerLock?.();
+  roundOver = false; winnerOwner = null;
   clearWorld(); me = null;
   for (let i = 0; i < N_BOTS; i++) spawnBot(); // bots keep playing behind the menu
   $('bestTxt').textContent = bestText();
@@ -1050,18 +1089,40 @@ function start() {
   unlockAudio(); fx6Done = false; lastRank = null;
   const name = $('nameIn').value.trim().slice(0, 14) || 'You';
   store.set('blob3d_name', $('nameIn').value.trim());
+  if (net.role === 'client') { // ask the host to put us back in
+    netSend({t: 'respawn', cls: clsKey});
+    peak = 0; enterPlay(); return;
+  }
+  if (net.role === 'host' && net.started && me) { // host plays again without resetting everyone's game
+    me.cls = classFor(clsKey); me.clsKey = clsKey;
+    respawnHuman(me); peak = me.cls.startMass; enterPlay(); return;
+  }
   diff = DIFFS[diffKey]; N_BOTS = diff.bots;
   clearWorld();
+  roundOver = false; winnerOwner = null;
   me = makeOwner(name, true, myHue);
-  cls = {...BASE_CLASS, ...CLASSES[clsKey].mods};
-  makeCell(me, cls.startMass, 0, H / 2, 0);
+  me.cls = classFor(clsKey); me.clsKey = clsKey;
+  makeCell(me, me.cls.startMass, 0, H / 2, 0);
   for (let i = 0; i < N_BOTS; i++) spawnBot();
-  time = 0; peak = cls.startMass; yaw = Math.PI; pitch = 0.3;
+  time = 0; peak = me.cls.startMass; yaw = Math.PI; pitch = 0.3;
+  if (net.role === 'host') net.started = true;
+  enterPlay();
+}
+function enterPlay() {
   for (const k in keys) keys[k] = false;
   joy.x = joy.y = 0; joy.id = null; lookId = null; stick.style.display = 'none';
   state = 'play';
   show(null);
   lockMouse();
+  last = performance.now();
+}
+function respawnHuman(o) {
+  o.alive = true; o.eatenBy = null; o.boost = 0; o.boostCd = 0; o.dir.set(0, 0, 0);
+  for (const c of [...o.cells]) killCell(c);
+  cells = cells.filter(c => c.alive);
+  if (!owners.includes(o)) owners.push(o);
+  const m = o.cls.startMass, r = massToR(m);
+  makeCell(o, m, (Math.random() * 2 - 1) * (A - 10), 10 + Math.random() * (H - 20), (Math.random() * 2 - 1) * (A - 10)).spawnT = time;
 }
 
 // a "squircle" ball: a sphere pushed out into a rounded cube, used when you fill the whole box
@@ -1075,22 +1136,38 @@ const boxyGeo = (() => {
   g.computeVertexNormals(); return g;
 })();
 
-function win() {
-  state = 'won';
-  const main = me.cells.reduce((a, b) => (b.mass > a.mass ? b : a));
-  main.mesh.geometry = boxyGeo;
-  for (const ch of main.mesh.children) ch.geometry = boxyGeo;
-  // you fill the box: everything else in it gets absorbed
-  for (const c of [...cells]) if (c.owner !== me) { me.cells[0].mass += c.mass; killCell(c); }
+function win(winner = me) {
+  // the winner fills the box: everything else in it gets absorbed
+  for (const c of [...cells]) if (c.owner !== winner) { winner.cells[0].mass += c.mass; killCell(c); }
   cells = cells.filter(c => c.alive);
-  for (const o of owners) if (o !== me) o.alive = false;
-  owners = [me];
+  for (const o of owners) if (o !== winner) { o.alive = false; o.cells = []; }
+  owners = owners.filter(o => o === winner || o === me);
+  if (net.role === 'host') { netBroadcast({t: 'ev', k: 'win', id: winner.id}); setTimeout(hostNewRound, 9000); }
+  showWin(winner);
+}
+function showWin(winner) {
+  roundOver = true; winnerOwner = winner; state = 'won';
+  if (winner.cells.length) {
+    const main = winner.cells.reduce((a, b) => (b.mass > a.mass ? b : a));
+    main.mesh.geometry = boxyGeo;
+    for (const ch of main.mesh.children) ch.geometry = boxyGeo;
+  }
   pitch = 0.35;
-  peak = Math.max(peak, totalMass(me));
-  if (peak > best) { best = Math.floor(peak); store.set('blob3d_best', best); }
   document.exitPointerLock?.();
-  $('winStats').textContent = `Mass ${Math.floor(totalMass(me))} · took ${Math.floor(time / 60)}m ${Math.floor(time % 60)}s`;
+  if (winner === me) {
+    peak = Math.max(peak, totalMass(me));
+    if (peak > best) { best = Math.floor(peak); store.set('blob3d_best', best); }
+    $('winTitle').innerHTML = '<b>You win!</b>';
+    $('winTag').textContent = 'You grew so big you fill the entire box.';
+    $('winStats').textContent = `Mass ${Math.floor(totalMass(me))} · took ${Math.floor(time / 60)}m ${Math.floor(time % 60)}s`;
+  } else {
+    $('winTitle').innerHTML = `<b>${esc(winner.name)} wins!</b>`;
+    $('winTag').textContent = 'They filled the whole box.';
+    $('winStats').textContent = '';
+  }
   $('winBest').textContent = bestText();
+  $('winNote').textContent = net.role === 'solo' ? '' : 'Next round starts in a few seconds…';
+  $('winAgain').classList.toggle('hidden', net.role !== 'solo');
   $('vignette').style.opacity = 0;
   setTimeout(() => { if (state === 'won') show('winMenu'); }, 5500);
 }
@@ -1116,6 +1193,12 @@ function die(killer) {
   setTimeout(() => { if (state === 'over') show('overMenu'); }, 900);
 }
 
+function onOwnerEaten(victim, killer) {
+  victim.eatenBy = killer;
+  if (victim === me && state !== 'over') die(killer);
+  if (net.role === 'host') netBroadcast({t: 'ev', k: 'eaten', id: victim.id, by: killer.id});
+}
+
 let botSpawnT = 0;
 function update(dt) {
   time += dt;
@@ -1125,7 +1208,8 @@ function update(dt) {
     if (!o.alive) continue;
     o.boostCd = Math.max(0, o.boostCd - dt);
     if (o.boost > 0) o.boost -= dt;
-    if (o.isPlayer) o.dir.copy(state === 'play' ? playerDir() : new THREE.Vector3());
+    if (o === me) o.dir.copy(state === 'play' ? playerDir() : new THREE.Vector3());
+    else if (o.isPlayer) { /* remote player: dir/aim arrive over the network */ }
     else if ((o.think -= dt) <= 0) think(o);
   }
 
@@ -1136,7 +1220,7 @@ function update(dt) {
     if (!o.isPlayer) c.mass = Math.min(c.mass, WIN_MASS * 0.6); // bots can't outgrow the box
     c.r = massToR(c.mass);
     c.mergeT = Math.max(0, c.mergeT - dt);
-    let sp = speedFor(c.r) * (o.boost > 0 ? 2.6 : 1) * (o.isPlayer ? cls.speed : 1);
+    let sp = speedFor(c.r) * (o.boost > 0 ? 2.6 : 1) * o.cls.speed;
     const target = o.dir.clone().multiplyScalar(sp);
     // keep split cells grouped: gentle pull toward the group's center
     if (o.cells.length > 1) {
@@ -1160,7 +1244,7 @@ function update(dt) {
     if (penF > 0) c.launch.y += penF * 30 * dt;
     if (penC > 0) c.launch.y -= penC * 30 * dt;
     c.pos.y = Math.max(sqY, Math.min(H - sqY, c.pos.y));
-    if (c.mass > 150) c.mass -= Math.min(c.mass, 3000) * 0.0012 * dt * (o.isPlayer ? cls.decay : 1);
+    if (c.mass > 150) c.mass -= Math.min(c.mass, 3000) * 0.0012 * dt * o.cls.decay;
   }
 
   // --- same-owner: push apart until merge timer is up, then merge ---
@@ -1188,12 +1272,12 @@ function update(dt) {
   cells = cells.filter(c => c.alive);
 
   // --- eat pellets ---
-  const pv = me && me.alive ? playerPelletValue() : 1;
   for (const c of cells) {
-    const reach = c.r + (c.owner.isPlayer ? cls.reach : BOT_PELLET_REACH), reach2 = reach * reach;
+    const pv = c.owner.isPlayer ? playerPelletValue(c.owner) : 1;
+    const reach = c.r + c.owner.cls.reach, reach2 = reach * reach;
     for (let i = 0; i < N_PELLETS; i++) {
       const p = pelletPos[i], dx = p.x - c.pos.x, dy = p.y - c.pos.y, dz = p.z - c.pos.z;
-      if (dx * dx + dy * dy + dz * dz < reach2) { feed(c, c.owner.isPlayer ? pv : 1); placePellet(i); }
+      if (dx * dx + dy * dy + dz * dz < reach2) { feed(c, pv); placePellet(i); }
     }
   }
 
@@ -1218,11 +1302,11 @@ function update(dt) {
     for (const b of cells) {
       if (b === a || !b.alive || b.owner === a.owner || !canEat(a, b)) continue;
       if (b.owner.isPlayer && a.spawnT !== undefined && time - a.spawnT < 2) continue; // 2s spawn grace
+      if (b.owner.isPlayer && b.spawnT !== undefined && time - b.spawnT < 2) continue; // freshly (re)spawned players are safe too
       if (a.pos.distanceTo(b.pos) < eatRange(a, b)) {
         feed(a, b.mass + b.digest); killCell(b);
         if (a.owner.isPlayer) startDigestFx(b, a); // watch it shrink away inside you
-        if (b.owner.cells.length === 0) b.owner.eatenBy = a.owner;
-        if (b.owner.isPlayer && b.owner.cells.length === 0 && state === 'play') die(a.owner);
+        if (b.owner.cells.length === 0) onOwnerEaten(b.owner, a.owner);
       }
     }
   }
@@ -1231,9 +1315,9 @@ function update(dt) {
   owners = owners.filter(o => o.alive || o === me);
   // refill bots gradually (not instantly) so eating one doesn't immediately drop a fresh one next to you
   botSpawnT -= dt;
-  if (state !== 'won' && botSpawnT <= 0 && owners.filter(o => !o.isPlayer).length < N_BOTS) { spawnBot(); botSpawnT = 0.5; }
+  if (!roundOver && botSpawnT <= 0 && owners.filter(o => !o.isPlayer).length < N_BOTS) { spawnBot(); botSpawnT = 0.5; }
   if (me && me.alive) peak = Math.max(peak, totalMass(me));
-  if (state === 'play' && me && me.alive && totalMass(me) >= WIN_MASS) win();
+  if (!roundOver) for (const o of owners) if (o.isPlayer && o.alive && totalMass(o) >= WIN_MASS) { win(o); break; }
 }
 
 let digestFx = [];
@@ -1254,13 +1338,13 @@ function updateDigestFx(dt) {
 const _up = new THREE.Vector3(), _right = new THREE.Vector3(), _toCam = new THREE.Vector3();
 function render3D(dt) {
   updateDigestFx(dt);
-  if (me && me.alive) me.mat.opacity = state === 'won' ? 0.75 : cls.ghost && me.boost > 0 ? 0.15 : 0.55;
-  scene.fog.near = state === 'won' ? 400 : 110; scene.fog.far = state === 'won' ? 900 : 330;
+  for (const o of owners) if (o.isPlayer) o.mat.opacity = roundOver && o === winnerOwner ? 0.75 : o.cls.ghost && o.boost > 0 ? 0.15 : 0.55;
+  scene.fog.near = roundOver ? 400 : 110; scene.fog.far = roundOver ? 900 : 330;
   _up.set(0, 1, 0).applyQuaternion(camera.quaternion);
   _right.set(1, 0, 0).applyQuaternion(camera.quaternion);
   for (const c of cells) {
-    if (state === 'won' && c.owner === me) {
-      const main = me.cells.reduce((a, b) => (b.mass > a.mass ? b : a));
+    if (roundOver && c.owner === winnerOwner) {
+      const main = winnerOwner.cells.reduce((a, b) => (b.mass > a.mass ? b : a));
       const t = Math.min(1, dt * 0.6); // slow, satisfying final swell
       c.mesh.position.lerp(new THREE.Vector3(0, H / 2, 0), t);
       c.mesh.scale.lerp(c === main ? new THREE.Vector3(A, H / 2, A) : new THREE.Vector3(0.01, 0.01, 0.01), t);
@@ -1310,7 +1394,7 @@ function updateCamera(dt) {
   const R = massToR(totalMass(o));
   let spread = 0; for (const cell of o.cells) spread = Math.max(spread, cell.pos.distanceTo(c) + cell.r);
   let want = 10 + R * 3.2 + Math.max(0, spread - R) * 1.3;
-  if (state === 'won') { c = new THREE.Vector3(0, H / 2, 0); want = A * 2.6; } // frame the whole filled box
+  if (roundOver) { c = new THREE.Vector3(0, H / 2, 0); want = A * 2.6; } // frame the whole filled box
   else want = Math.min(want, A * 2.6);
   camDist += (want - camDist) * Math.min(1, dt * 3);
   camFocus.lerp(c, Math.min(1, dt * 12));
@@ -1392,8 +1476,9 @@ function updateHUD(dt) {
   const dig = me.cells.reduce((s, c) => s + c.digest, 0);
   $('mass').innerHTML = 'Mass ' + Math.floor(totalMass(me)) + (dig >= 1 ? `<div style="color:#1b8a1b;font-size:13px;font-weight:600">+${Math.floor(dig)} digesting</div>` : '')
     + (me.cells.length > 1 ? `  <span style="font-size:.7em">(${me.cells.length} cells)</span>` : '');
-  $('rank').textContent = `Rank ${rank} / ${sorted.length} · ${CLASSES[clsKey].icon} ${CLASSES[clsKey].name}`;
-  $('boostfill').style.width = (100 * (1 - me.boostCd / cls.boostCd)) + '%';
+  const ck = CLASSES[me.clsKey] || CLASSES.balanced;
+  $('rank').textContent = `Rank ${rank} / ${sorted.length} · ${ck.icon} ${ck.name}`;
+  $('boostfill').style.width = (100 * (1 - me.boostCd / me.cls.boostCd)) + '%';
   const fill = Math.min(1, massToR(totalMass(me)) / WIN_R); // how much of the box's width you span
   $('fillTxt').textContent = `Fill the box: ${Math.floor(fill * 100)}%`;
   $('fillfill').style.width = fill * 100 + '%';
@@ -1430,6 +1515,262 @@ for (let i = 0; i < 12; i++) {
     opacity: (0.25 + Math.random() * 0.4).toFixed(2), animationDuration: 25 + Math.random() * 35 + 's', animationDelay: -Math.random() * 60 + 's'});
   $('bokeh').appendChild(b);
 }
+
+// ---------- multiplayer (peer-to-peer rooms via PeerJS) ----------
+const PEER_PREFIX = 'bubblebliss-v1-';
+const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const MAX_REMOTES = 7; // host + 7 friends
+let ownersById = new Map(), cellsById = new Map();
+const r1 = v => Math.round(v * 10) / 10;
+
+function loadScript(src) {
+  return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
+}
+async function loadPeerJS() { // only fetched when someone hosts or joins, so solo play never depends on it
+  if (window.Peer) return;
+  try { await loadScript('https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js'); }
+  catch (e) { await loadScript('https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js'); }
+}
+function peerOptions() { // ?peerhost=... lets you point at your own PeerServer instead of the free public one
+  const q = new URLSearchParams(location.search);
+  if (q.get('peerhost')) return {host: q.get('peerhost'), port: +q.get('peerport') || 9000, path: q.get('peerpath') || '/',
+    secure: q.get('peersecure') === '1', config: {iceServers: []}, debug: +q.get('peerdebug') || 0};
+  return {};
+}
+function mpStatus(text, err) { $('mpStatus').textContent = text || ''; $('mpStatus').classList.toggle('err', !!err); }
+function makeCode() { let c = ''; for (let i = 0; i < 5; i++) c += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]; return c; }
+function netSend(msg) { if (net.conn && net.conn.open) net.conn.send(msg); }
+function netBroadcast(msg) { for (const o of net.remotes.values()) if (o.conn && o.conn.open) o.conn.send(msg); }
+// big messages don't make it through a data channel, so the pellet list goes out in small chunks
+const PELLET_CHUNK = 300;
+function sendPellets(conn) {
+  for (let s = 0; s < N_PELLETS; s += PELLET_CHUNK) {
+    const a = [];
+    for (let i = s; i < Math.min(N_PELLETS, s + PELLET_CHUNK); i++) { const p = pelletPos[i]; a.push(r1(p.x), r1(p.y), r1(p.z)); }
+    conn.send({t: 'pel', s, a});
+  }
+}
+function applyPelletChunk(s, a) {
+  for (let k = 0; k * 3 < a.length; k++) { const i = s + k; if (i >= N_PELLETS) break; pelletPos[i].set(a[k * 3], a[k * 3 + 1], a[k * 3 + 2]); setPelletMatrix(i); }
+}
+
+function updateRoomBadge() {
+  const on = net.role !== 'solo';
+  $('roomBadge').classList.toggle('hidden', !on);
+  $('pauseRoom').classList.toggle('hidden', !on);
+  if (!on) return;
+  const n = net.role === 'host' ? net.remotes.size + 1 : owners.filter(o => o.isPlayer && o.alive).length;
+  $('roomBadge').innerHTML = `Room <b>${net.code}</b> · ${n} player${n === 1 ? '' : 's'}` + (net.role === 'host' ? ' · share the code!' : '');
+  $('pauseRoom').innerHTML = `Room code <b>${net.code}</b><br><small>The game keeps going while you're paused.</small>`;
+}
+function leaveNet() {
+  if (net.peer) { try { net.peer.destroy(); } catch (e) {} }
+  Object.assign(net, {role: 'solo', peer: null, conn: null, code: '', myId: null, started: false});
+  net.remotes.clear(); net.dirtyPellets.clear(); ownersById = new Map(); cellsById = new Map();
+  updateRoomBadge();
+}
+
+// ----- host -----
+async function hostGame(attempt = 0) {
+  mpStatus('Opening a room…');
+  try { await loadPeerJS(); } catch (e) { mpStatus("Couldn't load multiplayer. Check your internet connection.", true); return; }
+  const code = makeCode(), peer = new Peer(PEER_PREFIX + code, peerOptions());
+  peer.on('open', () => {
+    Object.assign(net, {role: 'host', peer, code, started: false});
+    mpStatus('');
+    start();
+    updateRoomBadge();
+  });
+  peer.on('connection', conn => hostAccept(conn));
+  peer.on('error', err => {
+    if (err.type === 'unavailable-id' && attempt < 3) { peer.destroy(); hostGame(attempt + 1); return; } // code taken: pick another
+    if (net.role !== 'host') mpStatus(`Couldn't open a room (${err.type}).`, true);
+  });
+  peer.on('disconnected', () => { try { peer.reconnect(); } catch (e) {} }); // keep the room code reachable for new joiners
+}
+function hostAccept(conn) {
+  conn.on('data', msg => hostOnData(conn, msg));
+  conn.on('close', () => hostDrop(conn));
+  conn.on('error', () => hostDrop(conn));
+}
+function hostOnData(conn, msg) {
+  let o = net.remotes.get(conn.peer);
+  if (msg.t === 'hello') {
+    if (o) return;
+    if (net.remotes.size >= MAX_REMOTES) { conn.send({t: 'full'}); setTimeout(() => conn.close(), 500); return; }
+    o = makeOwner(String(msg.name || 'Player').slice(0, 14), true, Number(msg.hue) || 0);
+    o.cls = classFor(msg.cls); o.clsKey = CLASSES[msg.cls] ? msg.cls : 'balanced';
+    o.aim = new THREE.Vector3(0, 0, -1); o.conn = conn;
+    net.remotes.set(conn.peer, o);
+    if (roundOver) { o.alive = false; owners = owners.filter(x => x !== o); } // joins at the next round
+    else respawnHuman(o);
+    conn.send({t: 'welcome', id: o.id, code: net.code});
+    sendPellets(conn);
+    updateRoomBadge();
+    return;
+  }
+  if (!o) return;
+  if (msg.t === 'in' && Array.isArray(msg.d) && Array.isArray(msg.a)) {
+    o.dir.set(+msg.d[0] || 0, +msg.d[1] || 0, +msg.d[2] || 0); if (o.dir.lengthSq() > 1) o.dir.normalize();
+    o.aim.set(+msg.a[0] || 0, +msg.a[1] || 0, +msg.a[2] || -1).normalize();
+  } else if (msg.t === 'act' && o.alive && ({split: 1, eject: 1, boost: 1})[msg.k]) {
+    ({split, eject, boost})[msg.k](o);
+  } else if (msg.t === 'respawn' && !o.alive && !roundOver) {
+    o.cls = classFor(msg.cls); o.clsKey = CLASSES[msg.cls] ? msg.cls : 'balanced';
+    respawnHuman(o);
+  }
+}
+function hostDrop(conn) {
+  const o = net.remotes.get(conn.peer);
+  if (!o) return;
+  for (const c of [...o.cells]) killCell(c);
+  cells = cells.filter(c => c.alive);
+  o.alive = false; owners = owners.filter(x => x !== o);
+  net.remotes.delete(conn.peer);
+  updateRoomBadge();
+}
+function hostSnapshot() {
+  const msg = {t: 's',
+    o: owners.filter(o => o.alive).map(o => [o.id, o.name, +o.hue.toFixed(3), o.isPlayer ? 1 : 0, o.clsKey || '', o.boost > 0 ? 1 : 0, +o.boostCd.toFixed(2)]),
+    c: cells.map(c => [c.id, c.owner.id, r1(c.pos.x), r1(c.pos.y), r1(c.pos.z), +c.mass.toFixed(1), Math.round(c.digest)]),
+    e: ejecta.map(e => [r1(e.pos.x), r1(e.pos.y), r1(e.pos.z), +e.r.toFixed(2), e.owner.id]),
+    p: []};
+  let n = 0; // cap per update to keep messages small; the rest go in the next one
+  for (const i of net.dirtyPellets) { if (n++ >= 150) break; const p = pelletPos[i]; msg.p.push(i, r1(p.x), r1(p.y), r1(p.z)); net.dirtyPellets.delete(i); }
+  netBroadcast(msg);
+}
+function hostNewRound() {
+  if (net.role !== 'host') return;
+  const humans = [me, ...net.remotes.values()].filter(Boolean);
+  clearWorld();
+  roundOver = false; winnerOwner = null;
+  for (const o of humans) { o.cells = []; respawnHuman(o); }
+  for (let i = 0; i < N_BOTS; i++) spawnBot();
+  for (let i = 0; i < N_PELLETS; i++) placePellet(i);
+  net.dirtyPellets.clear();
+  netBroadcast({t: 'round'});
+  for (const o of net.remotes.values()) if (o.conn && o.conn.open) sendPellets(o.conn);
+  peak = me ? totalMass(me) : 0;
+  enterPlay();
+  updateRoomBadge();
+}
+
+// ----- client -----
+async function joinGame() {
+  const code = $('codeIn').value.trim().toUpperCase();
+  if (code.length !== 5) { mpStatus('Room codes are 5 letters.', true); return; }
+  mpStatus('Connecting…');
+  try { await loadPeerJS(); } catch (e) { mpStatus("Couldn't load multiplayer. Check your internet connection.", true); return; }
+  const name = $('nameIn').value.trim().slice(0, 14) || 'Player';
+  store.set('blob3d_name', $('nameIn').value.trim());
+  const peer = new Peer(undefined, peerOptions());
+  let welcomed = false;
+  const fail = text => { if (welcomed) return; mpStatus(text, true); try { peer.destroy(); } catch (e) {} };
+  peer.on('open', () => {
+    const conn = peer.connect(PEER_PREFIX + code, {reliable: true, serialization: 'json'});
+    setTimeout(() => fail("Couldn't reach that room. Check the code, or the host's network may block direct connections."), 15000);
+    conn.on('open', () => conn.send({t: 'hello', name, hue: myHue, cls: clsKey}));
+    conn.on('data', msg => { if (msg.t === 'welcome') welcomed = true; clientOnData(msg); });
+    conn.on('close', () => clientLost());
+    conn.on('error', () => clientLost());
+    net.peer = peer; net.conn = conn;
+  });
+  peer.on('error', err => {
+    if (err.type === 'peer-unavailable') fail('No room with that code. Check it and try again.');
+    else if (!welcomed) fail(`Connection problem (${err.type}).`);
+    else clientLost();
+  });
+}
+function clientLost() {
+  if (net.role !== 'client') return;
+  toMainMenu();
+  mpStatus('Lost connection to the host.', true);
+}
+function clearClientWorld() {
+  clearWorld();
+  ownersById = new Map(); cellsById = new Map();
+  me = null; roundOver = false; winnerOwner = null;
+}
+function clientOnData(msg) {
+  if (msg.t === 'full') { mpStatus('That room is full.', true); return; }
+  if (msg.t === 'welcome') {
+    clearClientWorld();
+    Object.assign(net, {role: 'client', myId: msg.id, code: msg.code});
+    time = 0; peak = 0; yaw = Math.PI; pitch = 0.3;
+    mpStatus('');
+    unlockAudio();
+    enterPlay();
+    updateRoomBadge();
+    return;
+  }
+  if (net.role !== 'client') return;
+  if (msg.t === 'pel') applyPelletChunk(msg.s, msg.a);
+  else if (msg.t === 's') applySnapshot(msg);
+  else if (msg.t === 'ev' && msg.k === 'eaten') {
+    const v = ownersById.get(msg.id), k = ownersById.get(msg.by);
+    if (v) { v.eatenBy = k; if (v !== me) v.alive = false; }
+    if (msg.id === net.myId && me && state !== 'over') die(k || {name: 'Someone'});
+  } else if (msg.t === 'ev' && msg.k === 'win') {
+    const w = ownersById.get(msg.id);
+    if (w) showWin(w);
+  } else if (msg.t === 'round') {
+    clearClientWorld();
+    peak = 0;
+    enterPlay();
+  }
+}
+function applySnapshot(msg) {
+  const seenO = new Set();
+  for (const [id, name, hue, human, ck, boosting, bcd] of msg.o) {
+    let o = ownersById.get(id);
+    if (!o) { o = makeOwner(name, !!human, hue); o.id = id; ownersById.set(id, o); }
+    else if (!owners.includes(o)) owners.push(o);
+    o.alive = true; o.boost = boosting ? 1 : 0; o.boostCd = bcd;
+    if (human && o.clsKey !== ck) { o.clsKey = ck; o.cls = classFor(ck); }
+    seenO.add(id);
+  }
+  for (const o of owners) if (!seenO.has(o.id)) o.alive = false;
+  owners = owners.filter(o => o.alive || o === me);
+  if (!me) me = ownersById.get(net.myId) || null;
+  const seenC = new Set();
+  for (const [id, oid, x, y, z, mass, dig] of msg.c) {
+    const o = ownersById.get(oid); if (!o) continue;
+    let c = cellsById.get(id);
+    if (!c) { c = makeCell(o, mass, x, y, z); c.id = id; c.netPos = new THREE.Vector3(x, y, z); cellsById.set(id, c); }
+    c.netPos.set(x, y, z); c.mass = mass; c.digest = dig;
+    seenC.add(id);
+  }
+  for (const c of [...cells]) if (!seenC.has(c.id)) {
+    const eater = me && me.cells.find(e => e !== c && e.owner !== c.owner && e.pos.distanceTo(c.pos) < e.r + c.r);
+    killCell(c); cellsById.delete(c.id);
+    if (eater) startDigestFx(c, eater); // you ate it: watch it dissolve
+  }
+  cells = cells.filter(c => c.alive);
+  while (ejecta.length > msg.e.length) scene.remove(ejecta.pop().mesh);
+  msg.e.forEach(([x, y, z, r, oid], i) => {
+    const o = ownersById.get(oid);
+    let e = ejecta[i];
+    if (!e) { e = ejecta[i] = {mesh: new THREE.Mesh(sphereGeo, o ? o.mat : glassMat), pos: new THREE.Vector3()}; scene.add(e.mesh); }
+    if (o) e.mesh.material = o.mat;
+    e.mesh.scale.setScalar(r); e.mesh.position.set(x, y, z); e.pos.set(x, y, z);
+  });
+  for (let i = 0; i < msg.p.length; i += 4) { pelletPos[msg.p[i]].set(msg.p[i + 1], msg.p[i + 2], msg.p[i + 3]); setPelletMatrix(msg.p[i]); }
+  if ((net.badgeT = (net.badgeT || 0) + 1) % 20 === 0) updateRoomBadge();
+}
+function clientUpdate(dt) {
+  time += dt;
+  for (const c of cells) { if (c.netPos) c.pos.lerp(c.netPos, Math.min(1, dt * 14)); c.r = massToR(c.mass); }
+  if (me && me.alive) peak = Math.max(peak, totalMass(me));
+  if ((net.sendT -= dt) <= 0) {
+    net.sendT = 0.05;
+    const d = state === 'play' ? playerDir() : new THREE.Vector3(), a = camForward();
+    netSend({t: 'in', d: [r1(d.x * 10) / 10, r1(d.y * 10) / 10, r1(d.z * 10) / 10], a: [r1(a.x * 10) / 10, r1(a.y * 10) / 10, r1(a.z * 10) / 10]});
+  }
+}
+$('hostBtn').onclick = () => hostGame();
+$('joinBtn').onclick = () => { $('joinRow').classList.toggle('hidden'); $('codeIn').focus(); };
+$('joinGo').onclick = joinGame;
+$('codeIn').addEventListener('keydown', e => { if (e.code === 'Enter') { e.stopPropagation(); joinGame(); } });
 
 // ---------- radar / danger sense ----------
 const radar = $('radar'), rctx = radar.getContext('2d');
@@ -1495,8 +1836,10 @@ $('bestTxt').textContent = bestText();
 let last = performance.now();
 function frame(now) {
   const dt = Math.min(0.033, (now - last) / 1000); last = now;
-  if (state !== 'paused' && !fx6Active) update(dt);
-  if (state === 'play') { updateHUD(dt); drawRadar(); }
+  if (net.role === 'client') clientUpdate(dt);
+  else if (net.role === 'host' || (state !== 'paused' && !fx6Active)) update(dt); // a hosted world never pauses
+  if (net.role === 'host' && (net.sendT -= dt) <= 0 && net.remotes.size) { net.sendT = 0.05; hostSnapshot(); }
+  if (state === 'play' && me && me.alive && me.cells.length) { updateHUD(dt); drawRadar(); }
   else if (!specDrag) yaw += dt * (state === 'over' ? 0.08 : 0.15);
   if (state === 'over') updateSpectateText();
   render3D(dt);

@@ -8,6 +8,10 @@ A 3D, third-person take on agar.io that runs in the browser. Eat pellets to grow
 
 Open `index.html` in a browser, or play the GitHub Pages version if it's enabled. It loads three.js from a CDN, so it needs internet.
 
+## Multiplayer
+
+Press **Host game** to open a room and share the 5-letter code. Friends press **Join game** and type it in (up to 8 players). Players connect straight to the host's browser through [PeerJS](https://peerjs.com/), so there's no game server: the host's world (and its bots) is shared with everyone, and the host needs to keep their tab open and in the foreground. Some strict school or work networks block these direct connections.
+
 ## Controls
 
 | Key | Action |
