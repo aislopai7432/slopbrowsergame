@@ -2,7 +2,18 @@
 
 Newest first.
 
-## v0.21: Aero Dream (current)
+## v0.22: Promised Future (current)
+
+- Deep royal-blue skies with big, shaded, billowy clouds and more vivid green grass
+- Blue glass domes, white glass towers across the lake and a soft rainbow
+- FrutaigerAqua-style fish: striped clownfish, goldfish, blue tang, neon tetras and rainbowfish
+- AeroDream-style screen frame: aqua wave swooshes, glossy leaves and bubbles
+- Round bubble buttons for pause, sound and fullscreen
+- Every blob gets a second, softer refracted highlight, like a real glass orb
+- Chunky glossy logo with a leaf, shine sweeps on big buttons and crisper bokeh bubbles
+- Sound! A calm Wii-style soundtrack, bubbly plops when you eat, whooshes and soft clicks (mute in the pause menu or the bubble button)
+
+## v0.21: Aero Dream
 
 - Soft bloom glow on the sun, highlights and glossy edges (Auto and Pretty graphics)
 - Schools of glossy tropical fish swim around the arena

@@ -11,7 +11,7 @@
   .glass{background:linear-gradient(180deg,rgba(255,255,255,.78) 0%,rgba(255,255,255,.42) 48%,rgba(255,255,255,.24) 52%,rgba(255,255,255,.45) 100%);
     border:1px solid rgba(255,255,255,.95);box-shadow:0 10px 30px rgba(0,70,140,.22),inset 0 1px 0 #fff,inset 0 -2px 10px rgba(255,255,255,.6);
     backdrop-filter:blur(14px) saturate(1.5);-webkit-backdrop-filter:blur(14px) saturate(1.5)}
-  #hud{position:fixed;inset:0;pointer-events:none;padding:16px 18px}
+  #hud{position:fixed;inset:0;pointer-events:none;padding:16px 18px;z-index:1}
   #stats{display:inline-block;padding:10px 20px 12px;border-radius:20px;min-width:150px}
   #mass{font-size:26px;font-weight:600}
   #rank{font-size:14px;opacity:.75;margin-top:1px}
@@ -27,8 +27,9 @@
   #radar{position:absolute;left:18px;top:150px;width:170px;height:170px;border-radius:50%;transition:box-shadow .2s}
   #radar.danger{box-shadow:0 0 0 3px rgba(255,60,80,.85),0 0 28px rgba(255,40,60,.7)}
   #bokeh,#flare{position:fixed;inset:0;pointer-events:none;overflow:hidden}
-  .bk{position:absolute;border-radius:50%;filter:blur(1px);animation:drift linear infinite;
-    background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.55),rgba(255,255,255,.12) 45%,rgba(255,255,255,0) 70%);border:1px solid rgba(255,255,255,.25)}
+  .bk{position:absolute;border-radius:50%;animation:drift linear infinite;
+    background:radial-gradient(circle at 32% 28%,rgba(255,255,255,.7) 0 8%,rgba(255,255,255,.12) 30%,rgba(255,255,255,.08) 70%,rgba(255,255,255,.35) 100%);
+    border:1.5px solid rgba(255,255,255,.85);box-shadow:inset -2px -3px 5px rgba(0,120,200,.15)}
   @keyframes drift{from{transform:translateY(0)}to{transform:translateY(-120vh)}}
   .fl{position:absolute;border-radius:50%;transform:translate(-50%,-50%);mix-blend-mode:screen}
   #fx6{position:fixed;inset:0;z-index:50;background:#000;display:flex;align-items:center;justify-content:center;overflow:hidden;
@@ -82,6 +83,18 @@
     background:linear-gradient(180deg,#59ccff 0%,#1c8fe0 55%,#0a5fb0 100%);-webkit-background-clip:text;background-clip:text;color:transparent;
     filter:drop-shadow(0 2px 0 #fff) drop-shadow(0 4px 10px rgba(0,90,180,.3))}
   .panel h1 b{font-weight:700}
+  /* the main logo: chunky, glossy, white-outlined, with a hard gloss line, like FrutaigerAqua and AeroDream */
+  #mainMenu .panel h1{font-weight:800;font-size:50px;letter-spacing:0;position:relative;display:inline-block;padding:0 8px;
+    background:linear-gradient(180deg,#d8f8ff 0%,#7fdcff 44%,#1f9ef0 50%,#0b6fd0 78%,#0a52a8 100%);-webkit-background-clip:text;background-clip:text;
+    filter:drop-shadow(2px 0 0 #fff) drop-shadow(-2px 0 0 #fff) drop-shadow(0 2px 0 #fff) drop-shadow(0 -2px 0 #fff) drop-shadow(0 5px 6px rgba(0,60,150,.45))}
+  #mainMenu .panel h1 b{font-weight:800}
+  #mainMenu .panel h1::after{content:"";position:absolute;right:-18px;top:-12px;width:34px;height:24px;transform:rotate(-28deg);
+    border-radius:0 100% 0 100%;background:linear-gradient(135deg,#e6ff8a,#6cd424 55%,#2f9a12);border:2px solid #fff;
+    -webkit-background-clip:border-box;background-clip:border-box}
+  button.primary{position:relative;overflow:hidden}
+  button.primary::after{content:"";position:absolute;top:0;bottom:0;left:-60%;width:40%;transform:skewX(-20deg);
+    background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,.65),rgba(255,255,255,0));transition:none}
+  button.primary:hover::after{left:130%;transition:left .7s ease}
   .panel h2{font-size:34px;margin:0 0 10px;font-weight:300;color:#1477c4}
   .panel .tag{opacity:.75;margin-bottom:18px}
   .panel label{display:block;text-align:left;font-size:12px;opacity:.7;margin:14px 0 6px;text-transform:uppercase;letter-spacing:1.5px;font-weight:600}
@@ -144,6 +157,29 @@
   .ver ul{margin:0;padding-left:20px;font-size:14px;line-height:1.5}
   .smallbtn{width:auto;margin:8px auto 0;padding:5px 16px;font-size:13px;display:inline-block}
   .gfxrow{margin-top:6px}
+  #aeroFrame{position:absolute;inset:0;pointer-events:none}
+  #aeroFrame .wave{position:absolute;left:0;right:0;bottom:0;width:100%;height:90px}
+  #aeroFrame .corner{position:absolute;left:0;top:0;width:200px;height:200px}
+  #aeroFrame .leaf{position:absolute;width:110px;filter:drop-shadow(0 3px 4px rgba(0,60,0,.35))}
+  #aeroFrame .leaf.bl{left:-6px;bottom:8px}
+  #aeroFrame .leaf.br{right:-6px;bottom:14px;transform:scaleX(-1) rotate(8deg);width:90px}
+  #aeroFrame .fb,.bub{border-radius:50%;background:radial-gradient(circle at 32% 28%,rgba(255,255,255,.95) 0 10%,rgba(255,255,255,.18) 34%,rgba(120,220,255,.15) 64%,rgba(255,255,255,.65) 100%);
+    box-shadow:inset -2px -3px 6px rgba(0,120,200,.25),0 2px 6px rgba(0,80,160,.2);border:1px solid rgba(255,255,255,.8)}
+  #aeroFrame .fb{position:absolute;animation:orbBob 4s ease-in-out infinite}
+  #bubbleBtns{position:absolute;right:18px;top:240px;display:flex;flex-direction:column;gap:8px;pointer-events:auto}
+  .bub{width:46px;height:46px;padding:0;margin:0;font-size:17px;color:#0b5aa0;
+    background:radial-gradient(circle at 32% 26%,rgba(255,255,255,.98) 0 12%,rgba(220,246,255,.7) 36%,rgba(90,190,250,.55) 72%,rgba(255,255,255,.85) 100%)}
+  .bub:hover{transform:scale(1.08)}
+  body.touch #tPause{display:none}
+  /* phones: a row of bubble buttons at the top centre, above the touch areas */
+  body.touch #bubbleBtns{top:8px;right:auto;left:50%;transform:translateX(-50%);flex-direction:row;z-index:3}
+  body.touch #bubbleBtns .bub{width:40px;height:40px;font-size:15px}
+  #touch{position:absolute;inset:0;z-index:2;pointer-events:none}
+  @media (max-width:900px),(max-height:500px){
+    #aeroFrame .corner{display:none}
+    #aeroFrame .leaf{width:64px} #aeroFrame .leaf.br{width:54px}
+    #aeroFrame .wave{height:56px}
+  }
   #fpsHud{position:absolute;right:18px;bottom:14px;padding:4px 12px;border-radius:999px;font-size:12px;font-weight:600;font-variant-numeric:tabular-nums}
   body.touch #fpsHud{bottom:auto;top:230px} #fpsTxt{font-size:12px;opacity:.7;margin-top:4px}
   /* Fast graphics: no live blur behind the glass panels and no screen-space extras */
@@ -213,6 +249,26 @@
 <div id="vignette"></div>
 <div id="fx6" class="hidden"><canvas id="fx6c"></canvas></div>
 <div id="hud" class="hidden">
+  <div id="aeroFrame">
+    <svg class="wave" viewBox="0 0 1600 120" preserveAspectRatio="none"><defs>
+      <linearGradient id="wv1" x1="0" x2="1"><stop offset="0" stop-color="#2ec8ff" stop-opacity=".85"/><stop offset=".5" stop-color="#7ff0ff" stop-opacity=".55"/><stop offset="1" stop-color="#18a8f0" stop-opacity=".85"/></linearGradient>
+      <linearGradient id="wv2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".95"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>
+      <path d="M0 70 C 260 20, 520 120, 800 70 S 1340 20, 1600 60 L1600 120 L0 120 Z" fill="url(#wv1)"/>
+      <path d="M0 90 C 300 50, 560 125, 820 88 S 1360 50, 1600 82 L1600 120 L0 120 Z" fill="#0d8fe0" opacity=".55"/>
+      <path d="M0 72 C 260 22, 520 122, 800 72 S 1340 22, 1600 62" fill="none" stroke="url(#wv2)" stroke-width="5"/></svg>
+    <svg class="corner tl" viewBox="0 0 220 220"><path d="M0 150 C 30 70, 80 25, 170 0 L0 0 Z" fill="#7ff0ff" opacity=".35"/>
+      <path d="M0 150 C 30 70, 80 25, 170 0" fill="none" stroke="#fff" stroke-width="5" opacity=".9"/>
+      <path d="M0 175 C 40 85, 95 35, 200 5" fill="none" stroke="#2ec8ff" stroke-width="3" opacity=".7"/></svg>
+    <svg class="leaf bl" viewBox="0 0 160 120"><defs><linearGradient id="lf" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d9ff7a"/><stop offset=".5" stop-color="#6cd424"/><stop offset="1" stop-color="#2f9a12"/></linearGradient></defs>
+      <path d="M8 110 C 20 40, 90 10, 150 14 C 140 70, 80 112, 8 110 Z" fill="url(#lf)" stroke="#fff" stroke-width="3"/>
+      <path d="M8 110 C 50 80, 95 45, 150 14" fill="none" stroke="#fff" stroke-width="3" opacity=".8"/>
+      <path d="M40 60 C 70 34, 110 22, 140 22" fill="none" stroke="#fff" stroke-width="6" opacity=".45" stroke-linecap="round"/></svg>
+    <svg class="leaf br" viewBox="0 0 160 120"><path d="M8 110 C 20 40, 90 10, 150 14 C 140 70, 80 112, 8 110 Z" fill="url(#lf)" stroke="#fff" stroke-width="3"/>
+      <path d="M8 110 C 50 80, 95 45, 150 14" fill="none" stroke="#fff" stroke-width="3" opacity=".8"/></svg>
+    <i class="fb" style="left:2%;bottom:70px;width:34px;height:34px"></i><i class="fb" style="left:6.5%;bottom:104px;width:18px;height:18px"></i>
+    <i class="fb" style="right:3%;bottom:84px;width:40px;height:40px"></i><i class="fb" style="right:7.5%;bottom:118px;width:20px;height:20px"></i>
+    <i class="fb" style="left:1.2%;top:38%;width:22px;height:22px"></i><i class="fb" style="right:1.4%;top:50%;width:26px;height:26px"></i>
+  </div>
   <div id="stats" class="glass">
     <div id="mass">Mass 10</div>
     <div id="rank"></div>
@@ -222,6 +278,7 @@
   </div>
   <canvas id="radar" class="glass"></canvas>
   <div id="dangerTxt" class="hidden">⚠ Danger behind you!</div>
+  <div id="bubbleBtns"><button class="bub" id="bPause" title="Pause">❚❚</button><button class="bub" id="bSound" title="Sound">🔊</button><button class="bub" id="bFs" title="Fullscreen">⛶</button></div>
   <div id="roomBadge" class="glass hidden"></div>
   <div id="fpsHud" class="glass hidden"></div>
   <div id="netWait" class="glass hidden">⏳ Waiting for the host's game… ask them to keep it open on screen</div>
@@ -300,7 +357,7 @@
     <h2>Paused</h2>
     <div id="pauseRoom" class="hidden"></div>
     <button class="primary" id="resumeBtn">Resume</button>
-    <div class="gfxrow"><button id="gfxBtn2" class="smallbtn">⚙ Graphics: Auto</button> <button id="fpsBtn" class="smallbtn">Show FPS: Off</button> <button id="fsBtn2" class="smallbtn">⛶ Fullscreen</button><div id="fpsTxt"></div></div>
+    <div class="gfxrow"><button id="gfxBtn2" class="smallbtn">⚙ Graphics: Auto</button> <button id="fpsBtn" class="smallbtn">Show FPS: Off</button> <button id="soundBtn" class="smallbtn">🔊 Sound: On</button> <button id="fsBtn2" class="smallbtn">⛶ Fullscreen</button><div id="fpsTxt"></div></div>
     <button id="quitBtn">Main menu</button>
   </div>
 </div>
@@ -368,7 +425,7 @@ let shadowFrame = 0;
 document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0xd6f1ff, 110, 330);
+scene.fog = new THREE.Fog(0xb8e6ff, 160, 620);
 const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.1, 700);
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
@@ -382,7 +439,7 @@ const skyMat = new THREE.ShaderMaterial({
   fragmentShader: `varying vec3 vP;
     void main(){
       float h = vP.y;
-      vec3 top = vec3(0.02, 0.42, 0.88), mid = vec3(0.35, 0.78, 1.0), hor = vec3(0.86, 0.97, 1.0), gnd = vec3(0.55, 0.82, 0.55);
+      vec3 top = vec3(0.0, 0.30, 0.80), mid = vec3(0.12, 0.58, 0.96), hor = vec3(0.62, 0.90, 1.0), gnd = vec3(0.45, 0.78, 0.40);
       vec3 c = h > 0.0 ? mix(mix(hor, mid, smoothstep(0.0, 0.22, h)), top, smoothstep(0.22, 0.95, h)) : mix(hor, gnd, smoothstep(0.0, -0.2, h));
       gl_FragColor = vec4(c, 1.0);
     }`});
@@ -394,8 +451,8 @@ function makeEnvCube() {
   const N = 128, sunDir = new THREE.Vector3(0.5, 0.7, 0.3).normalize();
   const skyCol = y => {
     const lerp = (a, b, t) => a.map((v, i) => v + (b[i] - v) * Math.max(0, Math.min(1, t)));
-    if (y < 0) return lerp([230, 247, 255], [110, 190, 90], -y * 5);
-    return y < 0.22 ? lerp([230, 247, 255], [115, 204, 252], y / 0.22) : lerp([115, 204, 252], [26, 133, 235], (y - 0.22) / 0.73);
+    if (y < 0) return lerp([170, 232, 255], [96, 190, 70], -y * 5);
+    return y < 0.22 ? lerp([170, 232, 255], [40, 150, 245], y / 0.22) : lerp([40, 150, 245], [0, 80, 205], (y - 0.22) / 0.73);
   };
   const faces = [
     (u, v) => [1, -v, -u], (u, v) => [-1, -v, u], (u, v) => [u, 1, v],
@@ -474,31 +531,41 @@ for (const [c1, c2, rad, y, tilt, rot] of [[0x7dffcf, 0x4fc3ff, 420, 150, 0.35, 
 }
 
 // fluffy clouds
-const cloudTex = canvasTex(256, 128, (g, w, h) => {
-  for (let i = 0; i < 14; i++) {
-    const x = 40 + Math.random() * (w - 80), y = h * 0.55 + (Math.random() - 0.5) * 30, r = 22 + Math.random() * 26;
-    const grd = g.createRadialGradient(x, y - r * 0.3, 0, x, y, r);
-    grd.addColorStop(0, 'rgba(255,255,255,1)'); grd.addColorStop(0.7, 'rgba(250,253,255,0.9)'); grd.addColorStop(1, 'rgba(240,248,255,0)');
+// big billowy cumulus: bright sunlit tops, soft blue-grey undersides (like AeroDream's skies)
+const cloudTexes = [0, 1, 2].map(() => canvasTex(512, 256, (g, w, h) => {
+  const puffs = [];
+  for (let i = 0; i < 22; i++) {
+    const t = Math.random(), x = 70 + t * (w - 140), hump = Math.sin(t * Math.PI);
+    puffs.push([x, h * 0.72 - hump * (40 + Math.random() * 60) + (Math.random() - 0.5) * 20, 30 + hump * 45 + Math.random() * 25]);
+  }
+  for (const [x, y, r] of puffs) { // shadow layer
+    const grd = g.createRadialGradient(x, y + r * 0.35, 0, x, y + r * 0.2, r);
+    grd.addColorStop(0, 'rgba(176,198,226,0.95)'); grd.addColorStop(0.8, 'rgba(190,210,234,0.8)'); grd.addColorStop(1, 'rgba(200,220,240,0)');
     g.fillStyle = grd; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
   }
-});
+  for (const [x, y, r] of puffs) { // sunlit layer, offset up
+    const grd = g.createRadialGradient(x - r * 0.25, y - r * 0.45, 0, x, y - r * 0.2, r * 0.9);
+    grd.addColorStop(0, 'rgba(255,255,255,1)'); grd.addColorStop(0.6, 'rgba(250,253,255,0.95)'); grd.addColorStop(1, 'rgba(240,248,255,0)');
+    g.fillStyle = grd; g.beginPath(); g.arc(x, y - r * 0.18, r * 0.9, 0, Math.PI * 2); g.fill();
+  }
+}));
 const clouds = [];
-for (let i = 0; i < 26; i++) {
-  const s = new THREE.Sprite(new THREE.SpriteMaterial({map: cloudTex, fog: false, depthWrite: false, transparent: true, opacity: 0.92}));
-  const a = Math.random() * Math.PI * 2, r = 260 + Math.random() * 220;
-  s.position.set(Math.cos(a) * r, 50 + Math.random() * 130, Math.sin(a) * r);
-  const sc = 90 + Math.random() * 90; s.scale.set(sc, sc / 2, 1);
+for (let i = 0; i < 30; i++) {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({map: cloudTexes[i % 3], fog: false, depthWrite: false, transparent: true, opacity: 0.97}));
+  const a = Math.random() * Math.PI * 2, r = 250 + Math.random() * 230;
+  s.position.set(Math.cos(a) * r, 45 + Math.random() * 120, Math.sin(a) * r);
+  const sc = 130 + Math.random() * 130; s.scale.set(sc, sc / 2, 1);
   scene.add(s); clouds.push({s, a, r, sp: 0.004 + Math.random() * 0.006});
 }
 
 // ---------- landscape ----------
 const grassTex = canvasTex(512, 512, (g, w) => {
-  g.fillStyle = '#7fd65a'; g.fillRect(0, 0, w, w);
+  g.fillStyle = '#6ad634'; g.fillRect(0, 0, w, w);
   for (let i = 0; i < 70; i++) {
     const x = Math.random() * w, y = Math.random() * w, r = 30 + Math.random() * 90;
     const grd = g.createRadialGradient(x, y, 0, x, y, r);
     const light = Math.random() < 0.5;
-    grd.addColorStop(0, light ? 'rgba(200,255,150,0.35)' : 'rgba(60,160,60,0.25)'); grd.addColorStop(1, 'rgba(0,0,0,0)');
+    grd.addColorStop(0, light ? 'rgba(190,255,120,0.4)' : 'rgba(10,92,24,0.28)'); grd.addColorStop(1, 'rgba(0,0,0,0)');
     g.fillStyle = grd; g.fillRect(x - r, y - r, r * 2, r * 2);
   }
 });
@@ -584,13 +651,21 @@ function updateScenery(dt, focus) {
 const glossy = (color, extra = {}) => new THREE.MeshPhysicalMaterial({color, roughness: 0.15, clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 1.6, ...extra});
 const finShape = new THREE.Shape(); finShape.moveTo(0, 0); finShape.lineTo(-1, 0.75); finShape.lineTo(-0.75, 0); finShape.lineTo(-1, -0.75); finShape.closePath();
 const finGeo = new THREE.ShapeGeometry(finShape);
-const fishBodyGeo = new THREE.SphereGeometry(1, 18, 12);
-const FISH_KINDS = [ // body colour, fin colour
-  [0xff7a1a, 0xffffff], [0x1f6fff, 0xffd400], [0xffd400, 0x22a0ff], [0x22d3ee, 0xff5fa2], [0x7cfc00, 0x1f8fff]];
+const fishBodyGeo = new THREE.SphereGeometry(1, 18, 12).rotateZ(-Math.PI / 2); // poles on the nose/tail axis, so texture bands run across the body
+const fishSkin = draw => { const t = canvasTex(16, 128, draw); t.magFilter = THREE.LinearFilter; return t; };
+const band = (g, stops) => { const grd = g.createLinearGradient(0, 0, 0, 128); for (const [o, c] of stops) grd.addColorStop(o, c); g.fillStyle = grd; g.fillRect(0, 0, 16, 128); };
+const FISH_KINDS = [ // skin texture (nose at top -> tail at bottom), fin colour
+  [fishSkin(g => band(g, [[0, '#ff7a00'], [0.2, '#ff7a00'], [0.22, '#111'], [0.24, '#fff'], [0.33, '#fff'], [0.35, '#111'], [0.37, '#ff7a00'],
+    [0.5, '#ff7a00'], [0.52, '#111'], [0.54, '#fff'], [0.62, '#fff'], [0.64, '#111'], [0.66, '#ff7a00'], [0.8, '#ff7a00'], [0.82, '#fff'], [1, '#ff7a00']])), 0xff8a1a], // clownfish
+  [fishSkin(g => band(g, [[0, '#ffd23a'], [0.5, '#ff8a1a'], [1, '#ff5a1a']])), 0xffb21a],                                  // goldfish
+  [fishSkin(g => band(g, [[0, '#2a6fff'], [0.75, '#1a4fd8'], [0.8, '#ffd400'], [1, '#ffd400']])), 0xffd400],               // blue tang
+  [fishSkin(g => band(g, [[0, '#3fd8ff'], [0.45, '#2fb0ff'], [0.5, '#ff2e4a'], [1, '#ff2e4a']])), 0x9fe8ff],                // neon tetra
+  [fishSkin(g => band(g, [[0, '#ff4fa0'], [0.3, '#ffd23a'], [0.55, '#5ef05e'], [0.8, '#3fb8ff'], [1, '#a05cff']])), 0xff7ad0], // rainbowfish
+  [fishSkin(g => band(g, [[0, '#d6ff3a'], [1, '#7cd820']])), 0x3fb8ff]];                                                    // lime
 const schools = [];
-for (let s = 0; s < 6; s++) {
-  const [bodyC, finC] = FISH_KINDS[s % FISH_KINDS.length];
-  const bodyMat = glossy(bodyC, {emissive: new THREE.Color(bodyC).multiplyScalar(0.12)});
+for (let s = 0; s < 7; s++) {
+  const [skin, finC] = FISH_KINDS[s % FISH_KINDS.length];
+  const bodyMat = glossy(0xffffff, {map: skin, emissive: 0x111111});
   const finMat = glossy(finC, {side: THREE.DoubleSide, transparent: true, opacity: 0.9});
   const school = {fish: [], r: A + 22 + Math.random() * 30, y: 12 + Math.random() * 40, speed: (0.12 + Math.random() * 0.1) * (Math.random() < 0.5 ? -1 : 1),
     a: Math.random() * Math.PI * 2, bob: Math.random() * 6};
@@ -598,7 +673,7 @@ for (let s = 0; s < 6; s++) {
   for (let i = 0; i < n; i++) {
     const g = new THREE.Group();
     const body = new THREE.Mesh(fishBodyGeo, bodyMat); body.scale.set(1, 0.62, 0.3); g.add(body);
-    const tail = new THREE.Mesh(finGeo, finMat); tail.position.x = -0.85; g.add(tail);
+    const tail = new THREE.Mesh(finGeo, finMat); tail.position.x = -0.85; tail.scale.set(1.25, 1.35, 1); g.add(tail);
     g.scale.setScalar(size * (0.8 + Math.random() * 0.4));
     scene.add(g);
     school.fish.push({g, tail, off: new THREE.Vector3((Math.random() - 0.5) * 10, (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 10), ph: Math.random() * 6});
@@ -639,6 +714,41 @@ for (let i = 0; i < 26; i++) {
   }
   g.position.set(Math.cos(a) * r, 0, Math.sin(a) * r); scene.add(g);
 }
+
+// big blue glass domes on the island and the far shore (AeroDream's skyline)
+const domeMat = new THREE.MeshPhysicalMaterial({color: 0x5ab8ff, roughness: 0.03, metalness: 0.3, clearcoat: 1, transparent: true, opacity: 0.42,
+  envMapIntensity: 2.6, side: THREE.DoubleSide, depthWrite: false});
+const domeRibMat = glossy(0xf4fbff);
+for (const [a, r, rad] of [[0.9, A * 1.55, 16], [2.2, A * 1.6, 12], [4.0, A * 1.52, 18], [3.1, 330, 70]]) {
+  const g = new THREE.Group();
+  g.add(new THREE.Mesh(new THREE.SphereGeometry(rad, 48, 24, 0, Math.PI * 2, 0, Math.PI / 2), domeMat));
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(rad, rad * 0.04, 8, 64), domeRibMat); ring.rotation.x = Math.PI / 2; g.add(ring);
+  for (let k = 0; k < 4; k++) { // white ribs over the top
+    const rib = new THREE.Mesh(new THREE.TorusGeometry(rad, rad * 0.02, 6, 48, Math.PI), domeRibMat); rib.rotation.y = k * Math.PI / 4; g.add(rib);
+  }
+  const garden = new THREE.Mesh(new THREE.SphereGeometry(rad * 0.45, 20, 12), leafMats[0]); garden.scale.y = 0.6; g.add(garden);
+  g.position.set(Math.cos(a) * r, r > 200 ? -2 : 0, Math.sin(a) * r); scene.add(g);
+}
+// clean white glass towers across the lake
+const towerTex = canvasTex(64, 256, (g, w, h) => {
+  g.fillStyle = '#f2f7fb'; g.fillRect(0, 0, w, h);
+  for (let y = 6; y < h; y += 14) { const grd = g.createLinearGradient(0, y, 0, y + 9); grd.addColorStop(0, '#7fc8f2'); grd.addColorStop(1, '#2f8fd8'); g.fillStyle = grd; g.fillRect(3, y, w - 6, 9); }
+});
+const towerMat = new THREE.MeshPhysicalMaterial({map: towerTex, roughness: 0.15, clearcoat: 1, envMapIntensity: 1.4});
+for (let i = 0; i < 9; i++) {
+  const a = 2.75 + (i - 4) * 0.07 + (Math.random() - 0.5) * 0.03, r = 300 + Math.random() * 60, h = 40 + Math.random() * 80, wdt = 14 + Math.random() * 12;
+  const t = new THREE.Mesh(i % 3 === 0 ? new THREE.CylinderGeometry(wdt * 0.6, wdt * 0.6, h, 24) : new THREE.BoxGeometry(wdt, h, wdt), towerMat);
+  t.position.set(Math.cos(a) * r, h / 2 - 2, Math.sin(a) * r); t.rotation.y = Math.random(); scene.add(t);
+}
+// a soft rainbow arcing over the far shore
+const rainbow = new THREE.Mesh(new THREE.RingGeometry(330, 375, 96, 1, 0, Math.PI), new THREE.ShaderMaterial({
+  transparent: true, depthWrite: false, fog: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
+  vertexShader: 'varying vec2 vP; void main(){ vP = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader: `varying vec2 vP;
+    vec3 hue(float h){ return clamp(abs(mod(h * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0); }
+    void main(){ float t = (length(vP) - 330.0) / 45.0; float a = smoothstep(0.0, 0.15, t) * smoothstep(1.0, 0.85, t) * smoothstep(0.0, 120.0, vP.y);
+      gl_FragColor = vec4(hue(0.8 - t * 0.8) * a * 0.32, 1.0); }`}));
+rainbow.position.set(Math.cos(2.75) * 520, -30, Math.sin(2.75) * 520); rainbow.lookAt(0, -30, 0); scene.add(rainbow);
 
 // twinkling sparkles (four-point glints) drifting around the arena
 const sparkleTex = canvasTex(64, 64, (g, w) => {
@@ -833,6 +943,12 @@ const glossTex = canvasTex(128, 128, (g, w) => {
   g.fillStyle = r; g.fillRect(0, 0, w, w);
 });
 const glossMat = new THREE.SpriteMaterial({map: glossTex, transparent: true, depthWrite: false});
+// the softer, refracted glow along the bottom edge of a glass orb
+const gloss2Mat = new THREE.SpriteMaterial({map: canvasTex(128, 64, (g, w, h) => {
+  const grd = g.createRadialGradient(w / 2, h * 0.75, 0, w / 2, h * 0.75, w / 2);
+  grd.addColorStop(0, 'rgba(230,255,255,0.55)'); grd.addColorStop(0.5, 'rgba(200,250,255,0.25)'); grd.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grd; g.fillRect(0, 0, w, h);
+}), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending});
 
 function makeOwner(name, isPlayer, hue = Math.random()) {
   const o = {id: nextOwnerId++, name, isPlayer, hue, cells: [], dir: new THREE.Vector3(), boost: 0, boostCd: 0, think: 0, alive: true,
@@ -850,18 +966,18 @@ function makeCell(owner, mass, x, y, z) {
   const mesh = new THREE.Mesh(sphereGeo, owner.mat); mesh.castShadow = true;
   const core = new THREE.Mesh(sphereGeo, owner.mat); core.scale.setScalar(0.55); mesh.add(core); // denser middle
   mesh.add(new THREE.Mesh(sphereGeo, owner.rim));                                                   // glowing edge
-  const gloss = new THREE.Sprite(glossMat);
+  const gloss = new THREE.Sprite(glossMat), gloss2 = new THREE.Sprite(gloss2Mat);
   const label = new THREE.Sprite(owner.labelMat);
   const r = massToR(mass);
   mesh.scale.setScalar(r);
-  scene.add(mesh, label, gloss);
-  const c = {id: nextCellId++, owner, mass, mesh, label, gloss, r, alive: true, mergeT: 0,
+  scene.add(mesh, label, gloss, gloss2);
+  const c = {id: nextCellId++, owner, mass, mesh, label, gloss, gloss2, r, alive: true, mergeT: 0,
     pos: new THREE.Vector3(x, y, z), vel: new THREE.Vector3(), launch: new THREE.Vector3(), digest: 0};
   owner.cells.push(c); cells.push(c); return c;
 }
 
 function killCell(c) {
-  c.alive = false; scene.remove(c.mesh, c.label, c.gloss);
+  c.alive = false; scene.remove(c.mesh, c.label, c.gloss, c.gloss2);
   c.owner.cells = c.owner.cells.filter(x => x !== c);
 }
 
@@ -987,6 +1103,7 @@ function act(k) {
   if (!me || !me.alive || state !== 'play') return;
   if (net.role === 'client') netSend({t: 'act', k});
   else ({split, eject, boost})[k](me);
+  if (k !== 'eject') whoosh();
 }
 let specDrag = null;
 renderer.domElement.addEventListener('pointerdown', e => {
@@ -1101,7 +1218,7 @@ let best = 0; try { best = +localStorage.getItem('blob3d_best') || 0; } catch (e
 const $ = id => document.getElementById(id);
 
 function clearWorld() {
-  for (const c of cells) scene.remove(c.mesh, c.label, c.gloss);
+  for (const c of cells) scene.remove(c.mesh, c.label, c.gloss, c.gloss2);
   for (const e of ejecta) scene.remove(e.mesh);
   for (const f of digestFx) scene.remove(f.mesh);
   digestFx = [];
@@ -1144,6 +1261,7 @@ setDiff(diffKey);
 
 // ---------- patch notes (newest first; the first entry is the current version) ----------
 const PATCH_NOTES = [
+ {"v": "0.22", "title": "Promised Future", "notes": ["Deep royal-blue skies with big, shaded, billowy clouds and more vivid green grass", "Blue glass domes, white glass towers across the lake and a soft rainbow", "FrutaigerAqua-style fish: striped clownfish, goldfish, blue tang, neon tetras and rainbowfish", "AeroDream-style screen frame: aqua wave swooshes, glossy leaves and bubbles", "Round bubble buttons for pause, sound and fullscreen", "Every blob gets a second, softer refracted highlight, like a real glass orb", "Chunky glossy logo with a leaf, shine sweeps on big buttons and crisper bokeh bubbles", "Sound! A calm Wii-style soundtrack, bubbly plops when you eat, whooshes and soft clicks (mute in the pause menu or the bubble button)"]},
  {"v": "0.21", "title": "Aero Dream", "notes": ["Soft bloom glow on the sun, highlights and glossy edges (Auto and Pretty graphics)", "Schools of glossy tropical fish swim around the arena", "Dolphins leap out of the lake with splashes", "Round, glossy, Wii-style trees around the island", "Twinkling sparkles in the air", "Menus: a glossy orb logo, water droplets on the glass panels and Vista-style light swooshes"]},
  {"v": "0.20", "title": "Fullscreen", "notes": ["Fullscreen button on the main menu and in the pause menu", "The game remembers it: once you've turned fullscreen on, Play puts you straight back into fullscreen", "On Android phones, fullscreen also locks to landscape"]},
  {"v": "0.19", "title": "GPU Check", "notes": ["The game now asks your browser for your fast graphics card", "If your browser isn't using your graphics card at all (hardware acceleration off), the main menu warns you and shows how to turn it on for your browser", "Without a graphics card, Auto graphics switches to light settings so the game stays as playable as possible", "The pause menu shows which graphics card the game is running on"]},
@@ -1540,7 +1658,7 @@ function update(dt) {
       const arr = pBuckets[gx + PNX * (gy + PNY * gz)];
       for (let k = arr.length - 1; k >= 0; k--) { // backwards: eaten pellets are swapped out of this bucket safely
         const i = arr[k], p = pelletPos[i], dx = p.x - c.pos.x, dy = p.y - c.pos.y, dz = p.z - c.pos.z;
-        if (dx * dx + dy * dy + dz * dz < reach2) { feed(c, pv); placePellet(i); }
+        if (dx * dx + dy * dy + dz * dz < reach2) { feed(c, pv); placePellet(i); if (c.owner === me) plop(); }
       }
     }
   }
@@ -1570,6 +1688,7 @@ function update(dt) {
       if (a.pos.distanceTo(b.pos) < eatRange(a, b)) {
         feed(a, b.mass + b.digest); killCell(b);
         if (a.owner.isPlayer) startDigestFx(b, a); // watch it shrink away inside you
+        if (a.owner === me) plop(true);
         if (b.owner.cells.length === 0) onOwnerEaten(b.owner, a.owner);
       }
     }
@@ -1603,7 +1722,7 @@ const _up = new THREE.Vector3(), _right = new THREE.Vector3(), _toCam = new THRE
 function render3D(dt) {
   updateDigestFx(dt);
   for (const o of owners) if (o.isPlayer) o.mat.opacity = roundOver && o === winnerOwner ? 0.75 : o.cls.ghost && o.boost > 0 ? 0.15 : 0.55;
-  scene.fog.near = roundOver ? 400 : 110; scene.fog.far = roundOver ? 900 : 330;
+  scene.fog.near = roundOver ? 400 : 160; scene.fog.far = roundOver ? 900 : 620;
   _up.set(0, 1, 0).applyQuaternion(camera.quaternion);
   _right.set(1, 0, 0).applyQuaternion(camera.quaternion);
   for (const c of cells) {
@@ -1644,6 +1763,8 @@ function render3D(dt) {
     _toCam.subVectors(camera.position, P).normalize();
     c.gloss.position.copy(P).addScaledVector(_up, shown * 0.45).addScaledVector(_right, -shown * 0.32).addScaledVector(_toCam, shown * 0.75);
     c.gloss.scale.set(shown * 0.95, shown * 0.55, 1);
+    c.gloss2.position.copy(P).addScaledVector(_up, -shown * 0.55).addScaledVector(_right, shown * 0.2).addScaledVector(_toCam, shown * 0.8);
+    c.gloss2.scale.set(shown * 1.1, shown * 0.5, 1);
   }
 }
 
@@ -1671,6 +1792,72 @@ function updateCamera(dt) {
   camera.lookAt(camFocus);
   updateScenery(dt, camFocus);
 }
+
+// ---------- sound: a calm Aero soundtrack, bubbly eating sounds, soft clicks (all generated, no files) ----------
+let soundOn = true; try { soundOn = localStorage.getItem('blob3d_sound') !== '0'; } catch (e) {}
+const sfx = {master: null, music: null, verb: null, started: false, lastPlop: 0};
+function audioSetup() {
+  if (sfx.master || !audioCtx) return;
+  const ac = audioCtx;
+  sfx.master = ac.createGain(); sfx.master.gain.value = soundOn ? 0.5 : 0; sfx.master.connect(ac.destination);
+  sfx.music = ac.createGain(); sfx.music.gain.value = 0.32; sfx.music.connect(sfx.master);
+  // a soft, airy reverb made from decaying noise
+  const len = ac.sampleRate * 2.4, ir = ac.createBuffer(2, len, ac.sampleRate);
+  for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3); }
+  sfx.verb = ac.createConvolver(); sfx.verb.buffer = ir;
+  const wet = ac.createGain(); wet.gain.value = 0.45; sfx.verb.connect(wet); wet.connect(sfx.master);
+}
+function note(freq, t, dur, vol, type = 'sine', dest = sfx.music) {
+  const ac = audioCtx, o = ac.createOscillator(), g = ac.createGain();
+  o.type = type; o.frequency.value = freq;
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + Math.min(0.02, dur / 4)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(dest); g.connect(sfx.verb); o.start(t); o.stop(t + dur + 0.05);
+}
+const hz = midi => 440 * Math.pow(2, (midi - 69) / 12);
+// a gentle loop: Cmaj9 - Am9 - Fmaj9 - G6, soft pads with a bell-like arpeggio on top
+const CHORDS = [[48, 55, 59, 62, 64], [45, 52, 55, 59, 60], [41, 48, 52, 55, 57], [43, 50, 55, 57, 59]];
+const BELLS = [[72, 74, 76, 79, 81, 83, 84], [69, 71, 72, 76, 79, 81, 84], [69, 72, 74, 76, 77, 79, 81], [67, 69, 71, 74, 76, 79, 83]];
+let musicBar = 0, musicNext = 0;
+function musicTick() {
+  if (!audioCtx || !sfx.master || !soundOn) return;
+  const ac = audioCtx;
+  while (musicNext < ac.currentTime + 0.5) {
+    const t = Math.max(musicNext, ac.currentTime + 0.05), ci = musicBar % 4, bar = 3.2;
+    for (const m of CHORDS[ci]) { note(hz(m), t, bar * 1.1, 0.045, 'triangle'); note(hz(m) * 1.003, t, bar * 1.1, 0.03, 'sine'); }
+    for (let k = 0; k < 8; k++) if (Math.random() < 0.7) {
+      const m = BELLS[ci][Math.floor(Math.random() * 7)], tt = t + k * bar / 8;
+      note(hz(m), tt, 1.4, 0.05); note(hz(m) * 2.01, tt, 0.6, 0.012); // bell = tone + bright overtone
+    }
+    musicNext = t + bar; musicBar++;
+  }
+}
+setInterval(musicTick, 250);
+function plop(big = false) { // the bubbly sound of eating
+  if (!audioCtx || !sfx.master || !soundOn) return;
+  const now = audioCtx.currentTime;
+  if (!big && now - sfx.lastPlop < 0.07) return; sfx.lastPlop = now;
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain(), f = big ? 180 : 420 + Math.random() * 300;
+  o.type = 'sine'; o.frequency.setValueAtTime(f, now); o.frequency.exponentialRampToValueAtTime(f * (big ? 3.5 : 2.4), now + (big ? 0.18 : 0.07));
+  g.gain.setValueAtTime(big ? 0.35 : 0.12, now); g.gain.exponentialRampToValueAtTime(0.0001, now + (big ? 0.3 : 0.1));
+  o.connect(g); g.connect(sfx.master); g.connect(sfx.verb); o.start(now); o.stop(now + 0.35);
+}
+function uiClick() { if (audioCtx && sfx.master && soundOn) { const t = audioCtx.currentTime; note(1568, t, 0.12, 0.06, 'sine', sfx.master); note(2349, t + 0.04, 0.12, 0.04, 'sine', sfx.master); } }
+function whoosh() {
+  if (!audioCtx || !sfx.master || !soundOn) return;
+  const ac = audioCtx, now = ac.currentTime, len = ac.sampleRate * 0.4, b = ac.createBuffer(1, len, ac.sampleRate), d = b.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.sin(Math.PI * i / len);
+  const src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+  src.buffer = b; f.type = 'bandpass'; f.frequency.setValueAtTime(400, now); f.frequency.exponentialRampToValueAtTime(2400, now + 0.35); g.gain.value = 0.25;
+  src.connect(f); f.connect(g); g.connect(sfx.master); src.start(now);
+}
+function setSound(on) {
+  soundOn = on; store.set('blob3d_sound', on ? '1' : '0');
+  if (sfx.master) sfx.master.gain.setTargetAtTime(on ? 0.5 : 0, audioCtx.currentTime, 0.05);
+  $('bSound').textContent = on ? '🔊' : '🔇'; $('soundBtn').textContent = on ? '🔊 Sound: On' : '🔇 Sound: Off';
+}
+// sound can only start after a click/tap; any click on the page wakes it up
+addEventListener('pointerdown', () => { unlockAudio(); audioSetup(); }, {capture: true});
+document.addEventListener('click', e => { if (e.target.closest('button,.cls,.swatch')) uiClick(); }, true);
 
 // ---------- rank-6 surprise ----------
 const FX6_ENABLED = false; // temporarily switched off
@@ -2059,7 +2246,7 @@ function applySnapshot(msg) {
   for (const c of [...cells]) if (!seenC.has(c.id)) {
     const eater = me && me.cells.find(e => e !== c && e.owner !== c.owner && e.pos.distanceTo(c.pos) < e.r + c.r);
     killCell(c); cellsById.delete(c.id);
-    if (eater) startDigestFx(c, eater); // you ate it: watch it dissolve
+    if (eater) { startDigestFx(c, eater); plop(true); } // you ate it: watch it dissolve
   }
   cells = cells.filter(c => c.alive);
   while (ejecta.length > msg.e.length) scene.remove(ejecta.pop().mesh);
@@ -2076,7 +2263,12 @@ function applySnapshot(msg) {
 function clientUpdate(dt) {
   time += dt;
   for (const c of cells) { if (c.netPos) c.pos.lerp(c.netPos, Math.min(1, dt * 14)); c.r = massToR(c.mass); }
-  if (me && me.alive) peak = Math.max(peak, totalMass(me));
+  if (me && me.alive) {
+    peak = Math.max(peak, totalMass(me));
+    const tot = totalMass(me) + me.cells.reduce((s, c) => s + c.digest, 0);
+    if (net.lastTot !== undefined && tot > net.lastTot + 0.5) plop();
+    net.lastTot = tot;
+  }
   if ((net.sendT -= dt) <= 0) {
     net.sendT = 0.05;
     const d = state === 'play' ? playerDir() : new THREE.Vector3(), a = camForward();
@@ -2193,6 +2385,10 @@ function applyShowFps() {
 $('fpsBtn').onclick = () => { showFps = !showFps; store.set('blob3d_fps', showFps ? '1' : '0'); applyShowFps(); };
 applyShowFps();
 $('gfxBtn').onclick = cycleGfx; $('gfxBtn2').onclick = cycleGfx;
+$('soundBtn').onclick = () => setSound(!soundOn); $('bSound').onclick = () => setSound(!soundOn);
+$('bPause').onclick = () => { if (state === 'play') pause(); };
+$('bFs').onclick = () => toggleFullscreen();
+setSound(soundOn);
 if (SOFTWARE_GL) {
   const ua = navigator.userAgent;
   const how = /Edg\//.test(ua) ? 'Edge: Settings → System and performance → turn on <b>Use graphics acceleration when available</b> → Restart.'
