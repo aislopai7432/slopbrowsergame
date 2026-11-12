@@ -41,6 +41,7 @@ Grow until you physically fill the whole box (as wide as the box, pressing on ev
 | Hunter | Eats blobs only 3% smaller than you | Loses mass twice as fast when big |
 | Splitter | Splits fly further, merge faster, up to 32 cells | Starts smaller |
 | Ghost | Untouchable while boosting | Boosting costs 3x the mass |
+| Glutton | Digests food 3x faster | Loses mass 50% faster when big |
 
 On phones, drag the left side to fly, drag the right side to look, and use the on-screen buttons.
 

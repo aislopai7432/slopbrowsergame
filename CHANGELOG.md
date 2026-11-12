@@ -2,7 +2,13 @@
 
 Newest first.
 
-## v0.15: Better Rooms (current)
+## v0.16: Glutton (current)
+
+- Digestion is twice as fast for everyone
+- New class: Glutton 🍩 digests food 3x faster (on top of that), but loses mass faster when big
+- Joining a room now checks you and the host are on the same version, and tells you to refresh if not
+
+## v0.15: Better Rooms
 
 - The host can go back to the main menu without ending the game: the room keeps running for everyone
 - "Back to the game" puts the host straight back into the same world; End room is a separate button

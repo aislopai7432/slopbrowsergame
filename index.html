@@ -564,7 +564,7 @@ const EJECT_COST = 4, EJECT_MASS = 3.5, MIN_EJECT = 15;
 const massToR = m => 0.55 * Math.sqrt(m);
 const speedFor = r => 16 / Math.pow(r, 0.42);
 // player classes: every perk comes with a trade-off
-const BASE_CLASS = {speed: 1, eatRatio: PLAYER_EAT_RATIO, defense: EAT_RATIO, reach: PLAYER_PELLET_REACH, splitLaunch: 1,
+const BASE_CLASS = {digest: 1, speed: 1, eatRatio: PLAYER_EAT_RATIO, defense: EAT_RATIO, reach: PLAYER_PELLET_REACH, splitLaunch: 1,
   merge: 1, maxCells: MAX_CELLS, decay: 1, boostCd: 2.5, boostCost: 0.05, ghost: false, startMass: 12};
 const CLASSES = {
   balanced: {icon: '⚪', name: 'Balanced', up: 'No weaknesses', down: 'No strengths either', mods: {}},
@@ -580,6 +580,8 @@ const CLASSES = {
              mods: {splitLaunch: 1.5, merge: 0.5, maxCells: 32, startMass: 7}},
   ghost:    {icon: '👻', name: 'Ghost', up: 'Untouchable while boosting', down: 'Boosting costs 3x the mass',
              mods: {ghost: true, boostCost: 0.15}},
+  glutton:  {icon: '🍩', name: 'Glutton', up: 'Digests food 3x faster, so you swell up quickly', down: 'Mass melts away 50% faster when big',
+             mods: {digest: 3, decay: 1.5}},
 };
 const classFor = key => ({...BASE_CLASS, ...(CLASSES[key] || CLASSES.balanced).mods});
 // bots play by the plain rules
@@ -591,7 +593,7 @@ const WIN_MASS = Math.pow(WIN_R / 0.55, 2);
 const playerPelletValue = o => 1 + Math.min(3, Math.floor(totalMass(o) / 1500));
 // digestion: what you eat is absorbed gradually, at most this fraction of your mass per second,
 // so you swell steadily instead of jumping straight to full size
-const DIGEST_RATE = 0.015, DIGEST_MIN = 4;
+const DIGEST_RATE = 0.03, DIGEST_MIN = 8; // twice as fast as before
 // add food to a cell: players digest it over time, bots absorb it at once
 function feed(c, amount) { if (c.owner.isPlayer) c.digest += amount; else c.mass += amount; }
 const canEat = (a, b) => {
@@ -948,6 +950,7 @@ setDiff(diffKey);
 
 // ---------- patch notes (newest first; the first entry is the current version) ----------
 const PATCH_NOTES = [
+ {"v": "0.16", "title": "Glutton", "notes": ["Digestion is twice as fast for everyone", "New class: Glutton 🍩 digests food 3x faster (on top of that), but loses mass faster when big", "Joining a room now checks you and the host are on the same version, and tells you to refresh if not"]},
  {"v": "0.15", "title": "Better Rooms", "notes": ["The host can go back to the main menu without ending the game: the room keeps running for everyone", "\"Back to the game\" puts the host straight back into the same world; End room is a separate button", "The host's game keeps running even if they switch tabs or apps on a computer (to send the code, say)", "Joining shows each step (contacting the server, finding the room, loading the world) instead of hanging", "Clear messages when a room can't be reached, with what to try", "A \"waiting for the host\" notice appears if the host's game stops sending updates"]},
  {"v": "0.14", "title": "Same World", "notes": ["When the host dies, the game keeps going for everyone and the host respawns into the same world", "Death screen in multiplayer: Respawn puts you back into the same game", "Ending a room now takes a second tap, so the host can't close everyone's game by accident", "Players see Leave room instead of Main menu while in a room"]},
  {"v": "0.13", "title": "Multiplayer", "notes": ["Play with friends: press Host game to open a room, then share the 5-letter room code", "Friends press Join game and type the code to jump into your world, bots and all", "Up to 8 players per room, each with their own name, colour and class", "Room code shown on screen and in the pause menu so it's easy to share", "When someone fills the box, everyone sees who won and a new round starts automatically", "Freshly spawned players are safe for 2 seconds", "No accounts or servers needed: players connect directly to the host's browser"]},
@@ -1269,7 +1272,7 @@ function update(dt) {
   // --- move cells ---
   for (const c of cells) {
     const o = c.owner;
-    if (c.digest > 0) { const take = Math.min(c.digest, Math.max(DIGEST_MIN, c.mass * DIGEST_RATE) * dt); c.mass += take; c.digest -= take; }
+    if (c.digest > 0) { const take = Math.min(c.digest, Math.max(DIGEST_MIN, c.mass * DIGEST_RATE) * o.cls.digest * dt); c.mass += take; c.digest -= take; }
     if (!o.isPlayer) c.mass = Math.min(c.mass, WIN_MASS * 0.6); // bots can't outgrow the box
     c.r = massToR(c.mass);
     c.mergeT = Math.max(0, c.mergeT - dt);
@@ -1662,6 +1665,7 @@ function hostOnData(conn, msg) {
   let o = net.remotes.get(conn.peer);
   if (msg.t === 'hello') {
     if (o) return;
+    if (msg.v !== VERSION) { conn.send({t: 'version', host: VERSION}); setTimeout(() => conn.close(), 500); return; }
     if (net.remotes.size >= MAX_REMOTES) { conn.send({t: 'full'}); setTimeout(() => conn.close(), 500); return; }
     o = makeOwner(String(msg.name || 'Player').slice(0, 14), true, Number(msg.hue) || 0);
     o.cls = classFor(msg.cls); o.clsKey = CLASSES[msg.cls] ? msg.cls : 'balanced';
@@ -1758,7 +1762,7 @@ async function joinGame() {
     setTimeout(() => fail(conn.open
       ? "Reached the host, but their game didn't answer. Ask them to keep the game open on screen and try again."
       : "Couldn't connect to the host. One of your networks may block direct connections (common on school/work Wi-Fi). Try mobile data or another network."), 20000);
-    conn.on('open', () => { mpStatus('Connected! Loading the world…'); conn.send({t: 'hello', name, hue: myHue, cls: clsKey}); });
+    conn.on('open', () => { mpStatus('Connected! Loading the world…'); conn.send({t: 'hello', v: VERSION, name, hue: myHue, cls: clsKey}); });
     conn.on('data', msg => { if (msg.t === 'welcome') { welcomed = true; done(); } clientOnData(msg); });
     conn.on('close', () => clientLost());
     conn.on('error', () => clientLost());
@@ -1771,6 +1775,7 @@ async function joinGame() {
   });
 }
 function clientLost() {
+  if (net.versionFail) { net.versionFail = false; return; }
   if (net.role !== 'client') return;
   toMainMenu();
   mpStatus('Lost connection to the host.', true);
@@ -1782,6 +1787,10 @@ function clearClientWorld() {
 }
 function clientOnData(msg) {
   if (msg.t === 'full') { mpStatus('That room is full.', true); return; }
+  if (msg.t === 'version') {
+    mpStatus(`Version mismatch: the host has v${msg.host}, you have v${VERSION}. Both of you refresh the page (add ?v=${Date.now() % 1000} to the link) and try again.`, true);
+    net.versionFail = true; return;
+  }
   if (msg.t === 'welcome') {
     clearClientWorld();
     Object.assign(net, {role: 'client', myId: msg.id, code: msg.code, lastSnap: performance.now()});
