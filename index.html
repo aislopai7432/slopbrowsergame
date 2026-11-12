@@ -31,6 +31,13 @@
     background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.55),rgba(255,255,255,.12) 45%,rgba(255,255,255,0) 70%);border:1px solid rgba(255,255,255,.25)}
   @keyframes drift{from{transform:translateY(0)}to{transform:translateY(-120vh)}}
   .fl{position:absolute;border-radius:50%;transform:translate(-50%,-50%);mix-blend-mode:screen}
+  #fx6{position:fixed;inset:0;z-index:50;background:#000;display:flex;align-items:center;justify-content:center;overflow:hidden;
+    animation:fx6bg 1.6s steps(1) forwards, fx6shake .08s linear infinite}
+  #fx6c{width:min(95vw,95vh);height:min(95vw,95vh);animation:fx6zoom 1.6s cubic-bezier(.1,.9,.2,1) forwards}
+  /* background alternates at under 3 flashes per second (photosensitivity-safe) */
+  @keyframes fx6bg{0%{background:#000}35%{background:#b00010}70%{background:#000}100%{background:#000}}
+  @keyframes fx6zoom{0%{transform:scale(.2) rotate(-8deg)}12%{transform:scale(1.25) rotate(3deg)}100%{transform:scale(1.6) rotate(-2deg)}}
+  @keyframes fx6shake{0%{transform:translate(0,0)}25%{transform:translate(-14px,8px)}50%{transform:translate(12px,-10px)}75%{transform:translate(-8px,-12px)}100%{transform:translate(10px,12px)}}
   #vignette{position:fixed;inset:0;pointer-events:none;opacity:0;transition:opacity .15s;
     background:radial-gradient(ellipse at center,rgba(255,40,60,0) 55%,rgba(255,40,60,.55) 100%)}
   #dangerTxt{position:absolute;left:50%;top:84px;transform:translateX(-50%);padding:6px 16px;border-radius:999px;font-weight:700;font-size:15px;
@@ -163,6 +170,7 @@
 <div id="bokeh"></div>
 <div id="flare"></div>
 <div id="vignette"></div>
+<div id="fx6" class="hidden"><canvas id="fx6c"></canvas></div>
 <div id="hud" class="hidden">
   <div id="stats" class="glass">
     <div id="mass">Mass 10</div>
@@ -1038,6 +1046,7 @@ function pause() {
 function resume() { state = 'play'; show(null); lockMouse(); last = performance.now(); }
 
 function start() {
+  unlockAudio(); fx6Done = false; lastRank = null;
   const name = $('nameIn').value.trim().slice(0, 14) || 'You';
   store.set('blob3d_name', $('nameIn').value.trim());
   diff = DIFFS[diffKey]; N_BOTS = diff.bots;
@@ -1313,11 +1322,71 @@ function updateCamera(dt) {
   updateScenery(dt, camFocus);
 }
 
+// ---------- rank-6 surprise ----------
+let audioCtx = null, fx6Done = false, fx6Active = false, lastRank = 99;
+function unlockAudio() { // browsers only allow sound after a click/tap, so create it when Play is pressed
+  try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); audioCtx.resume(); } catch (e) {}
+}
+function scream() {
+  if (!audioCtx) return;
+  const ac = audioCtx, now = ac.currentTime, dur = 1.5;
+  const master = ac.createGain(); master.gain.setValueAtTime(0, now);
+  master.gain.linearRampToValueAtTime(1, now + 0.02); master.gain.setValueAtTime(1, now + dur - 0.3); master.gain.linearRampToValueAtTime(0, now + dur);
+  const comp = ac.createDynamicsCompressor(); comp.threshold.value = -6; comp.ratio.value = 4;
+  const shaper = ac.createWaveShaper(), curve = new Float32Array(1024);
+  for (let i = 0; i < 1024; i++) { const x = i / 512 - 1; curve[i] = Math.tanh(x * 6); } // gritty distortion
+  shaper.curve = curve;
+  shaper.connect(master); master.connect(comp); comp.connect(ac.destination);
+  for (const [f, type] of [[520, 'sawtooth'], [790, 'sawtooth'], [1130, 'square'], [260, 'sawtooth']]) {
+    const o = ac.createOscillator(), g = ac.createGain(), lfo = ac.createOscillator(), lg = ac.createGain();
+    o.type = type; o.frequency.setValueAtTime(f * 1.4, now); o.frequency.exponentialRampToValueAtTime(f * 0.6, now + dur);
+    lfo.frequency.value = 9 + Math.random() * 6; lg.gain.value = f * 0.08; lfo.connect(lg); lg.connect(o.frequency); // shrieking vibrato
+    g.gain.value = 0.25; o.connect(g); g.connect(shaper);
+    o.start(now); lfo.start(now); o.stop(now + dur); lfo.stop(now + dur);
+  }
+  const noise = ac.createBuffer(1, ac.sampleRate * dur, ac.sampleRate), d = noise.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  const ns = ac.createBufferSource(), ng = ac.createGain(); ns.buffer = noise; ng.gain.value = 0.35;
+  ns.connect(ng); ng.connect(shaper); ns.start(now);
+}
+function drawFace() {
+  const c = $('fx6c'); c.width = c.height = 600; const g = c.getContext('2d');
+  g.translate(300, 300);
+  const sk = g.createRadialGradient(-30, -60, 20, 0, 0, 280); sk.addColorStop(0, '#f2efe6'); sk.addColorStop(0.7, '#b9b4a6'); sk.addColorStop(1, '#4a4640');
+  g.fillStyle = sk; g.beginPath(); g.ellipse(0, 10, 210, 270, 0, 0, Math.PI * 2); g.fill();
+  for (const ex of [-85, 85]) { // hollow eyes with red pinpricks
+    g.fillStyle = '#000'; g.beginPath(); g.ellipse(ex, -60, 58, 72, ex > 0 ? 0.25 : -0.25, 0, Math.PI * 2); g.fill();
+    const rg = g.createRadialGradient(ex, -55, 0, ex, -55, 22); rg.addColorStop(0, '#ff2020'); rg.addColorStop(1, 'rgba(255,0,0,0)');
+    g.fillStyle = rg; g.beginPath(); g.arc(ex, -55, 22, 0, Math.PI * 2); g.fill();
+  }
+  g.fillStyle = '#1a0000'; g.beginPath(); g.ellipse(0, 130, 120, 95, 0, 0, Math.PI * 2); g.fill(); // gaping mouth
+  g.fillStyle = '#e8e2c8';
+  for (let i = -5; i <= 5; i++) { // jagged teeth
+    g.beginPath(); g.moveTo(i * 21 - 10, 55 + Math.abs(i) * 4); g.lineTo(i * 21 + 10, 55 + Math.abs(i) * 4); g.lineTo(i * 21, 95 + Math.random() * 15); g.fill();
+    g.beginPath(); g.moveTo(i * 21 - 10, 205 - Math.abs(i) * 4); g.lineTo(i * 21 + 10, 205 - Math.abs(i) * 4); g.lineTo(i * 21, 168 - Math.random() * 15); g.fill();
+  }
+  g.strokeStyle = 'rgba(60,0,0,.6)'; g.lineWidth = 3; // cracks
+  for (let i = 0; i < 9; i++) { g.beginPath(); let x = (Math.random() - 0.5) * 300, y = (Math.random() - 0.5) * 380; g.moveTo(x, y);
+    for (let j = 0; j < 5; j++) { x += (Math.random() - 0.5) * 50; y += Math.random() * 40; g.lineTo(x, y); } g.stroke(); }
+}
+function triggerFx6() {
+  fx6Done = true; fx6Active = true;
+  drawFace(); scream();
+  try { navigator.vibrate?.([400, 100, 400]); } catch (e) {}
+  const el = $('fx6'); el.classList.remove('hidden');
+  el.style.animation = 'none'; el.offsetHeight; el.style.animation = ''; // restart animations
+  $('fx6c').style.animation = 'none'; $('fx6c').offsetHeight; $('fx6c').style.animation = '';
+  setTimeout(() => { el.classList.add('hidden'); fx6Active = false; last = performance.now(); }, 1600);
+}
+
 let hudT = 0;
 function updateHUD(dt) {
   if ((hudT -= dt) > 0) return; hudT = 0.15;
   const sorted = owners.filter(o => o.alive).map(o => ({o, m: totalMass(o)})).sort((a, b) => b.m - a.m);
   const rank = sorted.findIndex(x => x.o === me) + 1;
+  if (lastRank === null) lastRank = rank; // your starting rank doesn't count
+  if (!fx6Done && rank <= 6 && lastRank > 6) triggerFx6(); // first time you climb into 6th place
+  lastRank = rank;
   const dig = me.cells.reduce((s, c) => s + c.digest, 0);
   $('mass').innerHTML = 'Mass ' + Math.floor(totalMass(me)) + (dig >= 1 ? `<div style="color:#1b8a1b;font-size:13px;font-weight:600">+${Math.floor(dig)} digesting</div>` : '')
     + (me.cells.length > 1 ? `  <span style="font-size:.7em">(${me.cells.length} cells)</span>` : '');
@@ -1424,7 +1493,7 @@ $('bestTxt').textContent = bestText();
 let last = performance.now();
 function frame(now) {
   const dt = Math.min(0.033, (now - last) / 1000); last = now;
-  if (state !== 'paused') update(dt);
+  if (state !== 'paused' && !fx6Active) update(dt);
   if (state === 'play') { updateHUD(dt); drawRadar(); }
   else if (!specDrag) yaw += dt * (state === 'over' ? 0.08 : 0.15);
   if (state === 'over') updateSpectateText();
