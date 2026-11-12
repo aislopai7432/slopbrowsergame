@@ -33,6 +33,15 @@
     background:linear-gradient(180deg,#ffc4cc 0%,#ff6b7d 48%,#e8384e 52%,#ff7d8e 100%);animation:pulse .6s infinite alternate}
   @keyframes pulse{from{transform:translateX(-50%) scale(1)}to{transform:translateX(-50%) scale(1.07)}}
   #winMenu h1{font-size:54px}
+  #overMenu{align-items:flex-end;background:linear-gradient(180deg,rgba(0,0,0,0) 55%,rgba(60,140,210,.3));pointer-events:none}
+  #overMenu .panel{pointer-events:auto;max-width:520px;padding:16px 22px;margin-bottom:8px}
+  #overMenu h2{font-size:26px;margin:0 0 2px}
+  #overMenu .stat{font-size:16px;margin:2px 0}
+  #overMenu .btnrow{display:flex;gap:10px}
+  #overMenu .btnrow button{margin-top:12px;font-size:17px;padding:10px}
+  #specTxt{display:inline-block;margin-top:6px;padding:4px 14px;border-radius:999px;font-size:14px;font-weight:600;color:#fff;
+    text-shadow:0 1px 2px rgba(0,60,120,.6);background:linear-gradient(180deg,#c4f1ff 0%,#5cc8f5 48%,#2299dd 52%,#5fd0ff 100%)}
+  #specHint{font-size:12px;opacity:.65;margin-top:4px}
   #lb{position:absolute;top:16px;right:18px;padding:12px 16px;border-radius:20px;min-width:180px;font-size:14px}
   #lb h3{margin:0 0 6px;font-size:15px;text-align:center;font-weight:600;letter-spacing:.5px}
   #lbrows>div{display:flex;justify-content:space-between;gap:12px;padding:1px 0}
@@ -216,9 +225,10 @@
     <h2>EATEN!</h2>
     <div class="stat" id="overKiller"></div>
     <div class="stat" id="overPeak"></div>
+    <div id="specTxt"></div>
+    <div id="specHint">Drag to look around</div>
+    <div class="btnrow"><button class="primary" id="againBtn">Play again</button><button id="menuBtn">Main menu</button></div>
     <div class="best" id="overBest"></div>
-    <button class="primary" id="againBtn">Play again</button>
-    <button id="menuBtn">Main menu</button>
   </div>
 </div>
 
@@ -629,6 +639,21 @@ addEventListener('keydown', e => {
 addEventListener('keyup', e => keys[e.code] = false);
 // hold E to keep dropping mass
 setInterval(() => { if (state === 'play' && (keys.KeyE || keys.KeyQ)) eject(me); }, 110);
+let specDrag = null;
+renderer.domElement.addEventListener('pointerdown', e => {
+  if (state !== 'over') return;
+  specDrag = {id: e.pointerId, x: e.clientX, y: e.clientY};
+  renderer.domElement.setPointerCapture(e.pointerId);
+});
+renderer.domElement.addEventListener('pointermove', e => {
+  if (!specDrag || e.pointerId !== specDrag.id) return;
+  yaw -= (e.clientX - specDrag.x) * 0.006;
+  pitch = Math.max(-1.35, Math.min(1.35, pitch + (e.clientY - specDrag.y) * 0.005));
+  specDrag.x = e.clientX; specDrag.y = e.clientY;
+});
+const endSpecDrag = e => { if (specDrag && e.pointerId === specDrag.id) specDrag = null; };
+renderer.domElement.addEventListener('pointerup', endSpecDrag);
+renderer.domElement.addEventListener('pointercancel', endSpecDrag);
 renderer.domElement.addEventListener('mousedown', () => {
   if (state !== 'play') return;
   if (!locked) { renderer.domElement.requestPointerLock?.(); dragging = true; }
@@ -823,11 +848,21 @@ function win() {
   setTimeout(() => { if (state === 'won') show('winMenu'); }, 900);
 }
 
+let spectate = null;
+function spectateTarget() {
+  // follow the killer; if they got eaten too, follow whoever ate them
+  let o = spectate, hops = 0;
+  while (o && !o.alive && o.eatenBy && hops++ < 20) o = o.eatenBy;
+  if (!o || !o.alive) o = owners.filter(x => x.alive && x !== me).reduce((a, b) => (!a || totalMass(b) > totalMass(a) ? b : a), null);
+  spectate = o; return o;
+}
+
 function die(killer) {
-  state = 'over'; me.alive = false;
+  state = 'over'; me.alive = false; spectate = killer;
   if (peak > best) { best = Math.floor(peak); store.set('blob3d_best', best); }
   document.exitPointerLock?.();
   $('overKiller').textContent = `${killer.name} ate you`;
+  pitch = 0.45;
   $('overPeak').textContent = `Peak mass ${Math.floor(peak)} · survived ${Math.floor(time)}s`;
   $('overBest').textContent = bestText();
   $('vignette').style.opacity = 0;
@@ -933,6 +968,7 @@ function update(dt) {
       if (b === a || !b.alive || b.owner === a.owner || !canEat(a, b)) continue;
       if (a.pos.distanceTo(b.pos) < eatRange(a, b)) {
         a.mass += b.mass; killCell(b);
+        if (b.owner.cells.length === 0) b.owner.eatenBy = a.owner;
         if (b.owner.isPlayer && b.owner.cells.length === 0 && state === 'play') die(a.owner);
       }
     }
@@ -985,6 +1021,7 @@ const camFocus = new THREE.Vector3();
 let camDist = 14;
 function updateCamera(dt) {
   let o = me && me.alive ? me : null;
+  if (!o && state === 'over') o = spectateTarget();
   if (!o) o = owners.filter(x => x.alive).reduce((a, b) => (totalMass(b) > totalMass(a) ? b : a), owners.find(x => x.alive));
   if (!o || !o.cells.length) return;
   const c = centroid(o);
@@ -1068,6 +1105,13 @@ function drawRadar() {
   $('dangerTxt').classList.toggle('hidden', !(behind && danger > 0.35));
 }
 
+let specT = 0;
+function updateSpectateText() {
+  if ((specT -= 1 / 60) > 0) return; specT = 0.2;
+  const o = spectate && spectate.alive ? spectate : null;
+  $('specTxt').textContent = o ? `👁 Spectating ${o.name} · mass ${Math.floor(totalMass(o))}` : '👁 Spectating';
+}
+
 // ---------- loop ----------
 for (let i = 0; i < N_BOTS; i++) spawnBot(); // bots play on the title screen
 $('bestTxt').textContent = bestText();
@@ -1076,7 +1120,8 @@ function frame(now) {
   const dt = Math.min(0.033, (now - last) / 1000); last = now;
   if (state !== 'paused') update(dt);
   if (state === 'play') { updateHUD(dt); drawRadar(); }
-  else yaw += dt * 0.15;
+  else if (!specDrag) yaw += dt * (state === 'over' ? 0.08 : 0.15);
+  if (state === 'over') updateSpectateText();
   render3D(dt);
   updateCamera(dt);
   renderer.render(scene, camera);
