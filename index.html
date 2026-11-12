@@ -12,15 +12,32 @@
   #rank{font-size:15px;color:#fffb;margin-top:2px}
   #boostbar{width:120px;height:6px;background:#fff2;margin-top:10px;border-radius:3px;overflow:hidden}
   #boostfill{height:100%;background:#4cf;width:100%}
+  #keys{position:absolute;left:22px;bottom:16px;font-size:13px;color:#fff9}
   #lb{position:absolute;top:16px;right:18px;background:#0007;padding:10px 14px;border-radius:8px;min-width:170px;font-size:14px}
   #lb h3{margin:0 0 6px;font-size:15px;text-align:center}
   #lbrows>div{display:flex;justify-content:space-between;gap:12px}
   #lb .me{color:#fd0;font-weight:700}
-  #menu{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#000a;text-align:center;cursor:pointer}
-  #menu h1{font-size:64px;margin:0;color:#4cf;text-shadow:0 0 30px #4cf}
-  #menu .sub{font-size:26px;margin:10px 0;min-height:30px}
-  #menu p{color:#fffc;margin:4px;font-size:17px}
-  #menu .go{color:#fd0;font-weight:700;font-size:22px;margin-top:22px}
+  .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(#0008,#000c);padding:16px;box-sizing:border-box}
+  .panel{background:#0d1428ee;border:1px solid #4cf5;border-radius:16px;padding:28px 32px;width:100%;max-width:420px;text-align:center;box-shadow:0 0 50px #4cf3}
+  .panel h1{font-size:46px;margin:0 0 4px;color:#4cf;text-shadow:0 0 24px #4cf;line-height:1}
+  .panel h2{font-size:34px;margin:0 0 10px;color:#4cf}
+  .panel .tag{color:#fff9;margin-bottom:20px}
+  .panel label{display:block;text-align:left;font-size:13px;color:#fffa;margin:14px 0 6px;text-transform:uppercase;letter-spacing:1px}
+  .panel input{width:100%;box-sizing:border-box;padding:11px 12px;border-radius:8px;border:1px solid #fff3;background:#0006;color:#fff;font-size:17px;outline:none}
+  .panel input:focus{border-color:#4cf}
+  .swatches{display:flex;gap:8px;flex-wrap:wrap}
+  .swatch{width:34px;height:34px;border-radius:50%;cursor:pointer;border:3px solid transparent;box-sizing:border-box}
+  .swatch.sel{border-color:#fff;box-shadow:0 0 12px #fff8}
+  .seg{display:flex;gap:6px}
+  .seg button{flex:1;margin:0;padding:9px;font-size:15px;background:#fff1;color:#fffc}
+  .seg button.sel{background:#4cf;color:#001}
+  button{font:inherit;cursor:pointer;border:none;border-radius:10px;padding:13px;font-size:18px;font-weight:700;width:100%;margin-top:10px;background:#fff1;color:#fff}
+  button:hover{filter:brightness(1.2)}
+  button.primary{background:#fd0;color:#221;margin-top:22px;font-size:21px}
+  .best{margin-top:14px;color:#fd0a;font-size:14px}
+  .howto{text-align:left;line-height:1.7;color:#fffd;font-size:15px}
+  .howto b{color:#4cf;display:inline-block;min-width:92px}
+  .stat{font-size:20px;margin:6px 0}
   .hidden{display:none!important}
 </style>
 </head>
@@ -29,15 +46,57 @@
   <div id="mass">Mass 10</div>
   <div id="rank"></div>
   <div id="boostbar"><div id="boostfill"></div></div>
+  <div id="keys">WASD move · Mouse look · Space split · E drop mass · Shift boost</div>
   <div id="lb"><h3>Leaderboard</h3><div id="lbrows"></div></div>
 </div>
-<div id="menu">
-  <h1 id="title">BLOB ARENA 3D</h1>
-  <div class="sub" id="sub"></div>
-  <p>WASD / arrows to move · Mouse to steer the camera (click to lock)</p>
-  <p>Space or Shift to boost (costs a little mass)</p>
-  <p>Eat pellets to grow. Eat blobs smaller than you. Run from bigger ones.</p>
-  <div class="go" id="go">Click to play</div>
+<div id="mainMenu" class="overlay">
+  <div class="panel">
+    <h1>BLOB ARENA 3D</h1>
+    <div class="tag">Eat. Grow. Don't get eaten.</div>
+    <label for="nameIn">Name</label>
+    <input id="nameIn" maxlength="14" placeholder="You" autocomplete="off">
+    <label>Colour</label>
+    <div class="swatches" id="swatches"></div>
+    <label>Difficulty</label>
+    <div class="seg" id="diff">
+      <button data-d="easy">Easy</button><button data-d="normal">Normal</button><button data-d="hard">Hard</button>
+    </div>
+    <button class="primary" id="playBtn">PLAY</button>
+    <button id="howBtn">How to play</button>
+    <div class="best" id="bestTxt"></div>
+  </div>
+</div>
+<div id="howMenu" class="overlay hidden">
+  <div class="panel">
+    <h2>How to play</h2>
+    <div class="howto">
+      <div><b>WASD</b> Move (relative to camera)</div>
+      <div><b>Mouse</b> Turn camera (click to lock)</div>
+      <div><b>Space</b> Split in two, launches half forward</div>
+      <div><b>E</b> Drop pellets of your mass (hold)</div>
+      <div><b>Shift</b> Speed boost, costs a little mass</div>
+      <div><b>Esc / P</b> Pause</div>
+      <p>Eat the small pellets to grow. You can eat any blob that is 20% smaller than you by rolling over its centre. Bigger blobs are slower. Split cells pull back together and merge after a few seconds.</p>
+    </div>
+    <button class="primary" id="howBack">Back</button>
+  </div>
+</div>
+<div id="pauseMenu" class="overlay hidden">
+  <div class="panel">
+    <h2>Paused</h2>
+    <button class="primary" id="resumeBtn">Resume</button>
+    <button id="quitBtn">Main menu</button>
+  </div>
+</div>
+<div id="overMenu" class="overlay hidden">
+  <div class="panel">
+    <h2>EATEN!</h2>
+    <div class="stat" id="overKiller"></div>
+    <div class="stat" id="overPeak"></div>
+    <div class="best" id="overBest"></div>
+    <button class="primary" id="againBtn">Play again</button>
+    <button id="menuBtn">Main menu</button>
+  </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -90,105 +149,179 @@ function placePellet(i) {
 for (let i = 0; i < N_PELLETS; i++) placePellet(i);
 scene.add(pellets);
 
-// ---------- blobs ----------
+// ---------- tuning ----------
+const EAT_RATIO = 1.2;        // need 20% more mass than the target to eat it
+const MIN_SPLIT = 20, MAX_CELLS = 16;
+const EJECT_COST = 4, EJECT_MASS = 3.5, MIN_EJECT = 15;
+const massToR = m => 0.55 * Math.sqrt(m);
+const speedFor = r => 16 / Math.pow(r, 0.42);
+const canEat = (a, b) => a.mass > b.mass * EAT_RATIO;
+
+// ---------- owners (a player or bot) and their cells ----------
 const NAMES = ['Blobby', 'Gooey', 'Mochi', 'Squish', 'Jelly', 'Bubbles', 'Dumpling', 'Orbo', 'Plop', 'Wobble', 'Gumdrop', 'Splat',
   'Noodle', 'Pudding', 'Marble', 'Boba', 'Pebble', 'Glorp', 'Sir Round', 'Big Chungus', 'Dot', 'Meatball', 'Slime King', 'Puff'];
-const N_BOTS = 24;
+const DIFFS = {
+  easy:   {bots: 16, think: 0.6,  boostChance: 0.15},
+  normal: {bots: 24, think: 0.3,  boostChance: 0.4},
+  hard:   {bots: 32, think: 0.12, boostChance: 0.8},
+};
+let diff = DIFFS.normal, N_BOTS = diff.bots;
 const sphereGeo = new THREE.SphereGeometry(1, 32, 24);
-let blobs = [], me = null;
+let owners = [], cells = [], ejecta = [], me = null;
 
-const massToR = m => 0.55 * Math.sqrt(m);
-const speedFor = r => 15 / Math.pow(r, 0.42);
-
-function makeLabel(text) {
+function labelMaterial(text) {
   const c = document.createElement('canvas'); c.width = 256; c.height = 64;
   const g = c.getContext('2d');
   g.font = 'bold 40px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle';
   g.lineWidth = 6; g.strokeStyle = '#000'; g.strokeText(text, 128, 32);
   g.fillStyle = '#fff'; g.fillText(text, 128, 32);
-  const s = new THREE.Sprite(new THREE.SpriteMaterial({map: new THREE.CanvasTexture(c), depthWrite: false}));
-  s.scale.set(4, 1, 1); return s;
+  return new THREE.SpriteMaterial({map: new THREE.CanvasTexture(c), depthWrite: false});
 }
 
-function makeBlob(name, mass, isPlayer) {
-  const hue = isPlayer ? 0.53 : Math.random();
-  const mat = new THREE.MeshStandardMaterial({color: new THREE.Color().setHSL(hue, 0.75, 0.55),
-    emissive: new THREE.Color().setHSL(hue, 0.8, 0.15), roughness: 0.35, metalness: 0.1});
-  const mesh = new THREE.Mesh(sphereGeo, mat); mesh.castShadow = true;
-  const label = makeLabel(name);
+function makeOwner(name, isPlayer, hue = Math.random()) {
+  const o = {name, isPlayer, hue, cells: [], dir: new THREE.Vector3(), boost: 0, boostCd: 0, think: 0, alive: true,
+    mat: new THREE.MeshStandardMaterial({color: new THREE.Color().setHSL(hue, 0.75, 0.55),
+      emissive: new THREE.Color().setHSL(hue, 0.8, 0.15), roughness: 0.35, metalness: 0.1}),
+    labelMat: labelMaterial(name)};
+  owners.push(o); return o;
+}
+
+function makeCell(owner, mass, x, z) {
+  const mesh = new THREE.Mesh(sphereGeo, owner.mat); mesh.castShadow = true;
+  const label = new THREE.Sprite(owner.labelMat);
+  const r = massToR(mass);
+  mesh.scale.setScalar(r);
   scene.add(mesh, label);
-  const b = {name, mass, mesh, label, isPlayer, pos: new THREE.Vector3(), vel: new THREE.Vector3(), dir: new THREE.Vector3(),
-    r: massToR(mass), alive: true, boost: 0, boostCd: 0, think: 0, wobble: Math.random() * 10};
-  b.pos.set((Math.random() * 2 - 1) * (A - 10), 0, (Math.random() * 2 - 1) * (A - 10));
-  blobs.push(b); return b;
+  const c = {owner, mass, mesh, label, r, alive: true, mergeT: 0,
+    pos: new THREE.Vector3(x, 0, z), vel: new THREE.Vector3(), launch: new THREE.Vector3()};
+  owner.cells.push(c); cells.push(c); return c;
 }
 
-function removeBlob(b) { b.alive = false; scene.remove(b.mesh, b.label); }
+function killCell(c) {
+  c.alive = false; scene.remove(c.mesh, c.label);
+  c.owner.cells = c.owner.cells.filter(x => x !== c);
+}
+
+const totalMass = o => o.cells.reduce((s, c) => s + c.mass, 0);
+function centroid(o) {
+  const v = new THREE.Vector3(); let m = 0;
+  for (const c of o.cells) { v.addScaledVector(c.pos, c.mass); m += c.mass; }
+  return m ? v.divideScalar(m) : v;
+}
 
 function spawnBot() {
-  const used = new Set(blobs.filter(b => b.alive).map(b => b.name));
+  const used = new Set(owners.map(o => o.name));
   const free = NAMES.filter(n => !used.has(n));
   const name = free.length ? free[Math.floor(Math.random() * free.length)] : 'Blob' + Math.floor(Math.random() * 99);
-  const b = makeBlob(name, 8 + Math.random() * (Math.random() < 0.2 ? 120 : 30), false);
-  // don't spawn on top of the player
-  if (me && b.pos.distanceTo(me.pos) < 25) b.pos.x = -b.pos.x, b.pos.z = -b.pos.z;
-  return b;
+  const o = makeOwner(name, false);
+  let x = (Math.random() * 2 - 1) * (A - 10), z = (Math.random() * 2 - 1) * (A - 10);
+  if (me && me.cells.length) { const c = centroid(me); if (Math.hypot(x - c.x, z - c.z) < 30) { x = -x; z = -z; } }
+  makeCell(o, 8 + Math.random() * (Math.random() < 0.2 ? 120 : 30), x, z);
+  return o;
+}
+
+// ---------- actions ----------
+function aimDir(o) {
+  if (o.dir.lengthSq()) return o.dir.clone();
+  return new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw)); // camera forward
+}
+
+function split(o) {
+  const d = aimDir(o);
+  for (const c of [...o.cells]) {
+    if (o.cells.length >= MAX_CELLS) break;
+    if (c.mass < MIN_SPLIT) continue;
+    c.mass /= 2; c.r = massToR(c.mass);
+    const n = makeCell(o, c.mass, c.pos.x + d.x * c.r * 0.5, c.pos.z + d.z * c.r * 0.5);
+    n.mesh.scale.setScalar(c.r);
+    n.launch.copy(d).multiplyScalar(28 + c.r * 3);
+    n.vel.copy(c.vel);
+    c.mergeT = n.mergeT = 9 + c.mass * 0.02;
+  }
+}
+
+function eject(o) {
+  const d = aimDir(o);
+  for (const c of o.cells) {
+    if (c.mass < MIN_EJECT) continue;
+    c.mass -= EJECT_COST;
+    const mesh = new THREE.Mesh(sphereGeo, o.mat);
+    const r = massToR(EJECT_MASS) * 0.8; mesh.scale.setScalar(r); mesh.castShadow = true;
+    const p = c.pos.clone().addScaledVector(d, c.r + r + 0.2);
+    mesh.position.set(p.x, r, p.z); scene.add(mesh);
+    ejecta.push({mesh, pos: p, r, vel: d.clone().multiplyScalar(32), owner: o, age: 0, mass: EJECT_MASS});
+  }
+}
+
+function boost(o) {
+  if (!o || o.boostCd > 0 || totalMass(o) < 14) return;
+  o.boost = 0.35; o.boostCd = 2.5;
+  for (const c of o.cells) c.mass *= 0.95;
 }
 
 // ---------- bot AI ----------
-function think(b) {
+function think(o) {
+  const b = o.cells[0];
   let threat = null, threatD = 1e9, prey = null, preyScore = -1;
-  for (const o of blobs) {
-    if (o === b || !o.alive) continue;
-    const d = b.pos.distanceTo(o.pos) - o.r - b.r;
-    if (o.r > b.r * 1.15 && d < 18 + o.r && d < threatD) { threat = o; threatD = d; }
-    else if (b.r > o.r * 1.15 && d < 30) { const s = o.mass / (d + 5); if (s > preyScore) { preyScore = s; prey = o; } }
+  for (const c of cells) {
+    if (c.owner === o || !c.alive) continue;
+    const d = b.pos.distanceTo(c.pos) - c.r - b.r;
+    if (canEat(c, b) && d < 18 + c.r && d < threatD) { threat = c; threatD = d; }
+    else if (canEat(b, c) && d < 30) { const s = c.mass / (d + 5); if (s > preyScore) { preyScore = s; prey = c; } }
+  }
+  for (const e of ejecta) { // free food
+    const d = b.pos.distanceTo(e.pos);
+    if (d < 20) { const s = e.mass / (d + 5); if (s > preyScore) { preyScore = s; prey = e; } }
   }
   if (threat) {
-    b.dir.subVectors(b.pos, threat.pos).setY(0).normalize();
-    // steer away from walls while fleeing
-    if (Math.abs(b.pos.x) > A - 12) b.dir.x -= Math.sign(b.pos.x);
-    if (Math.abs(b.pos.z) > A - 12) b.dir.z -= Math.sign(b.pos.z);
-    b.dir.normalize();
-    if (threatD < 6 && b.boostCd <= 0 && Math.random() < 0.5) boost(b);
+    o.dir.subVectors(b.pos, threat.pos).setY(0).normalize();
+    if (Math.abs(b.pos.x) > A - 12) o.dir.x -= Math.sign(b.pos.x);
+    if (Math.abs(b.pos.z) > A - 12) o.dir.z -= Math.sign(b.pos.z);
+    o.dir.normalize();
+    if (threatD < 6 && Math.random() < diff.boostChance) boost(o);
   } else if (prey) {
-    b.dir.subVectors(prey.pos, b.pos).setY(0).normalize();
-    if (b.pos.distanceTo(prey.pos) < b.r + 8 && b.boostCd <= 0 && Math.random() < 0.3) boost(b);
+    o.dir.subVectors(prey.pos, b.pos).setY(0).normalize();
+    if (prey.owner !== undefined && prey.mass && b.pos.distanceTo(prey.pos) < b.r + 8 && Math.random() < diff.boostChance * 0.6) boost(o);
   } else {
-    // go to nearest pellet
     let best = null, bd = 1e9;
     for (let i = 0; i < N_PELLETS; i += 3) { const d = pelletPos[i].distanceToSquared(b.pos); if (d < bd) { bd = d; best = pelletPos[i]; } }
-    if (best) b.dir.subVectors(best, b.pos).setY(0).normalize();
+    if (best) o.dir.subVectors(best, b.pos).setY(0).normalize();
   }
-  b.think = 0.2 + Math.random() * 0.25;
-}
-
-function boost(b) {
-  if (b.boostCd > 0 || b.mass < 14) return;
-  b.boost = 0.35; b.boostCd = 2.5; b.mass *= 0.94;
+  o.think = diff.think * (0.7 + Math.random() * 0.6);
 }
 
 // ---------- input ----------
 const keys = {};
 let yaw = Math.PI, pitch = 0.6, locked = false, dragging = false;
 addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') { if (e.code === 'Enter') start(); return; }
+  if (keys[e.code]) return; // ignore key repeat
   keys[e.code] = true;
-  if (e.code === 'Space') { e.preventDefault(); if (state !== 'play') start(); else boost(me); }
+  if (e.code === 'Escape' || e.code === 'KeyP') { if (state === 'play') pause(); else if (state === 'paused') resume(); return; }
+  if (e.code === 'Enter' && (state === 'menu' || state === 'over')) { start(); return; }
+  if (state !== 'play') return;
+  if (e.code === 'Space') { e.preventDefault(); split(me); }
+  if (e.code === 'KeyE' || e.code === 'KeyQ') eject(me);
   if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') boost(me);
 });
 addEventListener('keyup', e => keys[e.code] = false);
+// hold E to keep dropping mass
+setInterval(() => { if (state === 'play' && (keys.KeyE || keys.KeyQ)) eject(me); }, 110);
 renderer.domElement.addEventListener('mousedown', () => {
   if (state !== 'play') return;
   if (!locked) { renderer.domElement.requestPointerLock?.(); dragging = true; }
 });
 addEventListener('mouseup', () => dragging = false);
-document.addEventListener('pointerlockchange', () => locked = document.pointerLockElement === renderer.domElement);
+document.addEventListener('pointerlockchange', () => {
+  const was = locked;
+  locked = document.pointerLockElement === renderer.domElement;
+  if (was && !locked && state === 'play') pause(); // browser Esc releases the mouse: pause too
+});
 addEventListener('mousemove', e => {
   if (!locked && !dragging) return;
   yaw -= e.movementX * 0.0028;
   pitch = Math.max(0.15, Math.min(1.35, pitch + e.movementY * 0.0022));
 });
-document.getElementById('menu').addEventListener('click', start);
 
 function playerDir() {
   let f = 0, s = 0;
@@ -205,87 +338,188 @@ let state = 'menu', time = 0, peak = 0;
 let best = 0; try { best = +localStorage.getItem('blob3d_best') || 0; } catch (e) {}
 const $ = id => document.getElementById(id);
 
+function clearWorld() {
+  for (const c of cells) scene.remove(c.mesh, c.label);
+  for (const e of ejecta) scene.remove(e.mesh);
+  owners = []; cells = []; ejecta = [];
+}
+
+// ---------- menus ----------
+const COLORS = [0.53, 0.0, 0.08, 0.15, 0.33, 0.6, 0.75, 0.88];
+const store = {get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } },
+               set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} }};
+let myHue = +(store.get('blob3d_hue') ?? 0.53), diffKey = store.get('blob3d_diff') || 'normal';
+$('nameIn').value = store.get('blob3d_name') || '';
+for (const h of COLORS) {
+  const s = document.createElement('div'); s.className = 'swatch';
+  s.style.background = `hsl(${h * 360},75%,55%)`;
+  if (Math.abs(h - myHue) < 0.01) s.classList.add('sel');
+  s.onclick = () => { myHue = h; store.set('blob3d_hue', h); document.querySelectorAll('.swatch').forEach(x => x.classList.remove('sel')); s.classList.add('sel'); };
+  $('swatches').appendChild(s);
+}
+function setDiff(k) {
+  diffKey = k; store.set('blob3d_diff', k);
+  document.querySelectorAll('#diff button').forEach(b => b.classList.toggle('sel', b.dataset.d === k));
+}
+document.querySelectorAll('#diff button').forEach(b => b.onclick = () => setDiff(b.dataset.d));
+setDiff(diffKey);
+
+function show(id) {
+  for (const m of ['mainMenu', 'howMenu', 'pauseMenu', 'overMenu']) $(m).classList.toggle('hidden', m !== id);
+  $('hud').classList.toggle('hidden', id !== null);
+}
+function bestText() { return best ? 'Best mass: ' + best : ''; }
+$('playBtn').onclick = start;
+$('againBtn').onclick = start;
+$('howBtn').onclick = () => show('howMenu');
+$('howBack').onclick = () => show('mainMenu');
+$('resumeBtn').onclick = resume;
+$('quitBtn').onclick = toMainMenu;
+$('menuBtn').onclick = toMainMenu;
+
+function toMainMenu() {
+  state = 'menu'; document.exitPointerLock?.();
+  clearWorld(); me = null;
+  for (let i = 0; i < N_BOTS; i++) spawnBot(); // bots keep playing behind the menu
+  $('bestTxt').textContent = bestText();
+  show('mainMenu');
+}
+function pause() { state = 'paused'; document.exitPointerLock?.(); show('pauseMenu'); }
+function resume() { state = 'play'; show(null); renderer.domElement.requestPointerLock?.(); last = performance.now(); }
+
 function start() {
-  for (const b of blobs) if (b.alive) removeBlob(b);
-  blobs = [];
-  me = makeBlob('You', 10, true);
-  me.pos.set(0, 0, 0);
+  const name = $('nameIn').value.trim().slice(0, 14) || 'You';
+  store.set('blob3d_name', $('nameIn').value.trim());
+  diff = DIFFS[diffKey]; N_BOTS = diff.bots;
+  clearWorld();
+  me = makeOwner(name, true, myHue);
+  makeCell(me, 12, 0, 0);
   for (let i = 0; i < N_BOTS; i++) spawnBot();
-  time = 0; peak = 10; yaw = Math.PI; pitch = 0.6;
+  time = 0; peak = 12; yaw = Math.PI; pitch = 0.6;
+  for (const k in keys) keys[k] = false;
   state = 'play';
-  $('menu').classList.add('hidden'); $('hud').classList.remove('hidden');
+  show(null);
   renderer.domElement.requestPointerLock?.();
 }
 
 function die(killer) {
-  state = 'over';
-  peak = Math.max(peak, me.mass);
-  if (peak > best) { best = Math.floor(peak); try { localStorage.setItem('blob3d_best', best); } catch (e) {} }
+  state = 'over'; me.alive = false;
+  if (peak > best) { best = Math.floor(peak); store.set('blob3d_best', best); }
   document.exitPointerLock?.();
-  $('title').textContent = 'EATEN!';
-  $('sub').textContent = `${killer.name} ate you · Peak mass ${Math.floor(peak)} · Best ${best}`;
-  $('go').textContent = 'Click or press Space to play again';
-  setTimeout(() => { $('menu').classList.remove('hidden'); $('hud').classList.add('hidden'); }, 900);
+  $('overKiller').textContent = `${killer.name} ate you`;
+  $('overPeak').textContent = `Peak mass ${Math.floor(peak)} · survived ${Math.floor(time)}s`;
+  $('overBest').textContent = bestText();
+  setTimeout(() => { if (state === 'over') show('overMenu'); }, 900);
 }
 
 function update(dt) {
   time += dt;
-  const alive = blobs.filter(b => b.alive);
 
-  for (const b of alive) {
-    b.boostCd = Math.max(0, b.boostCd - dt);
-    if (b.isPlayer) { if (state === 'play') b.dir.copy(playerDir()); }
-    else if ((b.think -= dt) <= 0) think(b);
-
-    b.r = massToR(b.mass);
-    let sp = speedFor(b.r);
-    if (b.boost > 0) { b.boost -= dt; sp *= 2.6; }
-    const targetVel = b.dir.clone().multiplyScalar(sp);
-    b.vel.lerp(targetVel, Math.min(1, dt * (b.boost > 0 ? 10 : 5)));
-    b.pos.addScaledVector(b.vel, dt);
-    const lim = A - b.r * 0.6;
-    b.pos.x = Math.max(-lim, Math.min(lim, b.pos.x));
-    b.pos.z = Math.max(-lim, Math.min(lim, b.pos.z));
-    // slow mass decay for big blobs
-    if (b.mass > 60) b.mass -= b.mass * 0.004 * dt;
+  // --- steering ---
+  for (const o of owners) {
+    if (!o.alive) continue;
+    o.boostCd = Math.max(0, o.boostCd - dt);
+    if (o.boost > 0) o.boost -= dt;
+    if (o.isPlayer) o.dir.copy(state === 'play' ? playerDir() : new THREE.Vector3());
+    else if ((o.think -= dt) <= 0) think(o);
   }
 
-  // eat pellets
-  for (const b of alive) {
-    const reach = b.r + 0.35, reach2 = reach * reach;
-    for (let i = 0; i < N_PELLETS; i++) {
-      const p = pelletPos[i], dx = p.x - b.pos.x, dz = p.z - b.pos.z;
-      if (dx * dx + dz * dz < reach2) { b.mass += 1; placePellet(i); }
+  // --- move cells ---
+  for (const c of cells) {
+    const o = c.owner;
+    c.r = massToR(c.mass);
+    c.mergeT = Math.max(0, c.mergeT - dt);
+    let sp = speedFor(c.r) * (o.boost > 0 ? 2.6 : 1);
+    const target = o.dir.clone().multiplyScalar(sp);
+    // keep split cells grouped: gentle pull toward the group's center
+    if (o.cells.length > 1) {
+      const toC = centroid(o).sub(c.pos).setY(0);
+      const pull = c.mergeT > 0 ? 0.6 : 2.5;
+      target.addScaledVector(toC, pull);
+      if (target.length() > sp * 1.2) target.setLength(sp * 1.2);
     }
+    // snappy, non-floaty steering
+    c.vel.lerp(target, Math.min(1, dt * 18));
+    c.pos.addScaledVector(c.vel, dt).addScaledVector(c.launch, dt);
+    c.launch.multiplyScalar(Math.exp(-4.5 * dt));
+    const lim = A - c.r * 0.6;
+    c.pos.x = Math.max(-lim, Math.min(lim, c.pos.x));
+    c.pos.z = Math.max(-lim, Math.min(lim, c.pos.z));
+    if (c.mass > 60) c.mass -= c.mass * 0.004 * dt;
   }
 
-  // eat each other
-  for (const a of alive) {
-    if (!a.alive) continue;
-    for (const o of alive) {
-      if (o === a || !o.alive || !a.alive) continue;
-      if (a.r > o.r * 1.15 && a.pos.distanceTo(o.pos) < a.r - o.r * 0.4) {
-        a.mass += o.mass * 0.9;
-        removeBlob(o);
-        if (o.isPlayer) die(a);
+  // --- same-owner: push apart until merge timer is up, then merge ---
+  for (const o of owners) {
+    const cs = o.cells;
+    for (let i = 0; i < cs.length; i++) for (let j = i + 1; j < cs.length; j++) {
+      const a = cs[i], b = cs[j];
+      if (!a.alive || !b.alive) continue;
+      const dx = b.pos.x - a.pos.x, dz = b.pos.z - a.pos.z, d = Math.hypot(dx, dz) || 0.001;
+      if (a.mergeT <= 0 && b.mergeT <= 0) {
+        if (d < Math.max(a.r, b.r) * 0.9) { // merge smaller into larger
+          const [big, small] = a.mass >= b.mass ? [a, b] : [b, a];
+          big.mass += small.mass; killCell(small);
+        }
+      } else {
+        const overlap = a.r + b.r - d;
+        if (overlap > 0 && a.launch.lengthSq() < 25 && b.launch.lengthSq() < 25) {
+          const push = overlap * Math.min(1, dt * 12) / 2;
+          a.pos.x -= dx / d * push; a.pos.z -= dz / d * push;
+          b.pos.x += dx / d * push; b.pos.z += dz / d * push;
+        }
       }
     }
   }
-  blobs = blobs.filter(b => b.alive);
-  while (blobs.filter(b => !b.isPlayer).length < N_BOTS) spawnBot();
-  if (me && me.alive) peak = Math.max(peak, me.mass);
+  cells = cells.filter(c => c.alive);
+
+  // --- eat pellets ---
+  for (const c of cells) {
+    const reach = c.r + 0.6, reach2 = reach * reach;
+    for (let i = 0; i < N_PELLETS; i++) {
+      const p = pelletPos[i], dx = p.x - c.pos.x, dz = p.z - c.pos.z;
+      if (dx * dx + dz * dz < reach2) { c.mass += 1; placePellet(i); }
+    }
+  }
+
+  // --- ejected mass ---
+  for (const e of ejecta) {
+    e.age += dt;
+    e.pos.addScaledVector(e.vel, dt); e.vel.multiplyScalar(Math.exp(-3.5 * dt));
+    e.pos.x = Math.max(-A + 1, Math.min(A - 1, e.pos.x)); e.pos.z = Math.max(-A + 1, Math.min(A - 1, e.pos.z));
+    e.mesh.position.set(e.pos.x, e.r, e.pos.z);
+    for (const c of cells) {
+      if (c.owner === e.owner && e.age < 0.6) continue; // don't instantly re-eat your own drop
+      if (c.pos.distanceTo(e.pos) < c.r + e.r * 0.5) { c.mass += e.mass; e.dead = true; scene.remove(e.mesh); break; }
+    }
+    if (e.age > 60) { e.dead = true; scene.remove(e.mesh); }
+  }
+  ejecta = ejecta.filter(e => !e.dead);
+
+  // --- cells eat other owners' cells (center inside you = eaten) ---
+  for (const a of cells) {
+    if (!a.alive) continue;
+    for (const b of cells) {
+      if (b === a || !b.alive || b.owner === a.owner || !canEat(a, b)) continue;
+      if (a.pos.distanceTo(b.pos) < a.r) {
+        a.mass += b.mass; killCell(b);
+        if (b.owner.isPlayer && b.owner.cells.length === 0 && state === 'play') die(a.owner);
+      }
+    }
+  }
+  cells = cells.filter(c => c.alive);
+  for (const o of owners) if (!o.cells.length) o.alive = false;
+  owners = owners.filter(o => o.alive || o === me);
+  while (owners.filter(o => !o.isPlayer).length < N_BOTS) spawnBot();
+  if (me && me.alive) peak = Math.max(peak, totalMass(me));
 }
 
 function render3D(dt) {
-  for (const b of blobs) {
-    b.r = massToR(b.mass);
-    b.wobble += dt * 6;
-    const sq = 1 + Math.sin(b.wobble) * 0.03;
-    const shown = b.mesh.scale.x + (b.r - b.mesh.scale.x) * Math.min(1, dt * 8); // smooth growth
-    b.mesh.scale.set(shown / Math.sqrt(sq), shown * sq, shown / Math.sqrt(sq));
-    b.mesh.position.set(b.pos.x, shown * sq, b.pos.z);
-    b.label.position.set(b.pos.x, shown * 2 + 1 + shown * 0.15, b.pos.z);
-    const ls = 3 + shown * 0.9; b.label.scale.set(ls, ls / 4, 1);
+  for (const c of cells) {
+    const shown = c.mesh.scale.x + (c.r - c.mesh.scale.x) * Math.min(1, dt * 12);
+    c.mesh.scale.setScalar(shown);
+    c.mesh.position.set(c.pos.x, shown, c.pos.z);
+    c.label.position.set(c.pos.x, shown * 2.15 + 1, c.pos.z);
+    const ls = 3 + shown * 0.9; c.label.scale.set(ls, ls / 4, 1);
   }
 }
 
@@ -293,19 +527,21 @@ function render3D(dt) {
 const camFocus = new THREE.Vector3();
 let camDist = 14;
 function updateCamera(dt) {
-  const target = me && me.alive ? me : blobs.reduce((a, b) => (b.mass > a.mass ? b : a), blobs[0]);
-  if (!target) return;
-  const r = target.mesh.scale.x;
-  camDist += ((10 + r * 3.2) - camDist) * Math.min(1, dt * 3);
-  camFocus.lerp(new THREE.Vector3(target.pos.x, r * 1.2, target.pos.z), Math.min(1, dt * 10));
+  let o = me && me.alive ? me : null;
+  if (!o) o = owners.filter(x => x.alive).reduce((a, b) => (totalMass(b) > totalMass(a) ? b : a), owners.find(x => x.alive));
+  if (!o || !o.cells.length) return;
+  const c = centroid(o);
+  const R = massToR(totalMass(o));
+  let spread = 0; for (const cell of o.cells) spread = Math.max(spread, cell.pos.distanceTo(c) + cell.r);
+  camDist += ((10 + R * 3.2 + Math.max(0, spread - R) * 1.3) - camDist) * Math.min(1, dt * 3);
+  camFocus.lerp(new THREE.Vector3(c.x, R * 1.1, c.z), Math.min(1, dt * 12));
   camera.position.set(
     camFocus.x + Math.sin(yaw) * Math.cos(pitch) * camDist,
     camFocus.y + Math.sin(pitch) * camDist,
     camFocus.z + Math.cos(yaw) * Math.cos(pitch) * camDist);
   camera.lookAt(camFocus);
-  // keep the shadow area centered on the action
   sun.position.set(camFocus.x + 40, 80, camFocus.z + 30); sun.target.position.copy(camFocus);
-  const sc = 40 + r * 4;
+  const sc = 40 + R * 4 + spread;
   Object.assign(sun.shadow.camera, {left: -sc, right: sc, top: sc, bottom: -sc, near: 1, far: 200});
   sun.shadow.camera.updateProjectionMatrix();
 }
@@ -313,24 +549,23 @@ function updateCamera(dt) {
 let hudT = 0;
 function updateHUD(dt) {
   if ((hudT -= dt) > 0) return; hudT = 0.15;
-  const sorted = [...blobs].sort((a, b) => b.mass - a.mass);
-  const rank = sorted.indexOf(me) + 1;
-  $('mass').textContent = 'Mass ' + Math.floor(me.mass);
+  const sorted = owners.filter(o => o.alive).map(o => ({o, m: totalMass(o)})).sort((a, b) => b.m - a.m);
+  const rank = sorted.findIndex(x => x.o === me) + 1;
+  $('mass').textContent = 'Mass ' + Math.floor(totalMass(me)) + (me.cells.length > 1 ? `  (${me.cells.length} cells)` : '');
   $('rank').textContent = `Rank ${rank} / ${sorted.length}`;
   $('boostfill').style.width = (100 * (1 - me.boostCd / 2.5)) + '%';
-  let html = sorted.slice(0, 8).map((b, i) => `<div class="${b.isPlayer ? 'me' : ''}"><span>${i + 1}. ${b.name}</span><span>${Math.floor(b.mass)}</span></div>`).join('');
-  if (rank > 8) html += `<div class="me"><span>${rank}. You</span><span>${Math.floor(me.mass)}</span></div>`;
+  let html = sorted.slice(0, 8).map((x, i) => `<div class="${x.o === me ? 'me' : ''}"><span>${i + 1}. ${x.o.name}</span><span>${Math.floor(x.m)}</span></div>`).join('');
+  if (rank > 8) html += `<div class="me"><span>${rank}. You</span><span>${Math.floor(totalMass(me))}</span></div>`;
   $('lbrows').innerHTML = html;
 }
 
 // ---------- loop ----------
-// title screen: bots play on their own in the background
-for (let i = 0; i < N_BOTS; i++) spawnBot();
-$('sub').textContent = best ? 'Best mass ' + best : '';
+for (let i = 0; i < N_BOTS; i++) spawnBot(); // bots play on the title screen
+$('bestTxt').textContent = bestText();
 let last = performance.now();
 function frame(now) {
   const dt = Math.min(0.033, (now - last) / 1000); last = now;
-  update(dt);
+  if (state !== 'paused') update(dt);
   if (state === 'play') updateHUD(dt);
   else yaw += dt * 0.15;
   render3D(dt);
