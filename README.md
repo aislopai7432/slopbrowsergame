@@ -37,3 +37,5 @@ Grow until you physically fill the whole box (as wide as the box, pressing on ev
 | Ghost | Untouchable while boosting | Boosting costs 3x the mass |
 
 On phones, drag the left side to fly, drag the right side to look, and use the on-screen buttons.
+
+See [CHANGELOG.md](CHANGELOG.md) for patch notes, or the **Patch notes** button in the game menu.

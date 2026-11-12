@@ -86,6 +86,17 @@
     background:linear-gradient(180deg,#c4f1ff 0%,#5cc8f5 48%,#2299dd 52%,#5fd0ff 100%)}
   #clsDesc{font-size:13px;margin-top:8px;min-height:36px;text-align:left;line-height:1.4}
   #clsDesc .up{color:#1b8a1b} #clsDesc .down{color:#c0283c}
+  #notesBtn{position:relative}
+  .newbadge{position:absolute;top:-6px;right:14px;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:700;color:#fff;
+    background:linear-gradient(180deg,#ffc4cc 0%,#ff6b7d 48%,#e8384e 52%,#ff7d8e 100%);border:1px solid #c0283c}
+  #notesList{text-align:left;max-height:min(58vh,460px);overflow-y:auto;padding-right:6px;touch-action:pan-y}
+  .ver{margin-bottom:14px}
+  .ver h3{margin:0 0 4px;font-size:17px;color:#1477c4;font-weight:600}
+  .ver h3 small{font-weight:400;opacity:.65;font-size:13px}
+  .ver .cur{display:inline-block;margin-left:6px;padding:0 8px;border-radius:999px;font-size:11px;color:#fff;vertical-align:2px;
+    background:linear-gradient(180deg,#d4fb9c 0%,#8fdc45 48%,#5cb81e 52%,#93e64f 100%);border:1px solid #4b9b1c}
+  .ver ul{margin:0;padding-left:20px;font-size:14px;line-height:1.5}
+  #verTxt{font-size:12px;opacity:.55;margin-top:6px}
   .best{margin-top:14px;color:#1b8a1b;font-size:14px;font-weight:600}
   .howto{text-align:left;line-height:1.75;font-size:15px}
   .howto b{color:#1477c4;display:inline-block;min-width:92px}
@@ -134,6 +145,9 @@
     button{padding:10px;font-size:16px}
     button.primary{margin-top:16px;font-size:19px;padding:12px}
     .swatch{width:30px;height:30px}
+    #notesList{max-height:calc(100vh - 150px)}
+    .panel h2{font-size:26px;margin-bottom:6px}
+    .ver ul{font-size:13px}
   }
 </style>
 </head>
@@ -182,7 +196,9 @@
     <div id="clsDesc"></div>
     <button class="primary" id="playBtn">PLAY</button>
     <button id="howBtn">How to play</button>
+    <button id="notesBtn">Patch notes</button>
     <div class="best" id="bestTxt"></div>
+    <div id="verTxt"></div>
   </div>
 </div>
 <div id="howMenu" class="overlay hidden">
@@ -201,6 +217,13 @@
       <p>Eat the small pellets to grow. You can eat any blob even slightly smaller than you (8%) by bumping into it. Bots need to be 20% bigger than you. Bigger blobs are slower. Split cells pull back together and merge after a few seconds.</p>
     </div>
     <button class="primary" id="howBack">Back</button>
+  </div>
+</div>
+<div id="notesMenu" class="overlay hidden">
+  <div class="panel glass">
+    <h2>Patch notes</h2>
+    <div id="notesList"></div>
+    <button class="primary" id="notesBack">Back</button>
   </div>
 </div>
 <div id="pauseMenu" class="overlay hidden">
@@ -802,8 +825,121 @@ function setDiff(k) {
 document.querySelectorAll('#diff button').forEach(b => b.onclick = () => setDiff(b.dataset.d));
 setDiff(diffKey);
 
+// ---------- patch notes (newest first; the first entry is the current version) ----------
+const PATCH_NOTES = [
+ {
+  "v": "0.9",
+  "title": "Fill the Box",
+  "notes": [
+   "You now win by physically filling the whole box: grow as wide as the box and your blob swells into a giant jelly cube",
+   "Everything left in the box gets absorbed when you win",
+   "Pellets are worth more to you as you grow (up to 10x), so the late game moves faster",
+   "Bots of any size can spawn anywhere, even inside you (free food if you can eat them)",
+   "New bots can't eat you for their first 2 seconds, so you never get spawn-killed",
+   "Bots come back gradually instead of all at once",
+   "Fix: pellets no longer respawn inside you",
+   "Fix: mass could explode to absurd numbers when very big"
+  ]
+ },
+ {
+  "v": "0.8",
+  "title": "Spectator",
+  "notes": [
+   "When you get eaten, the camera follows whoever ate you",
+   "If your killer gets eaten too, you follow the blob that ate them",
+   "Drag to look around while spectating; death screen moved to the bottom so you can watch"
+  ]
+ },
+ {
+  "v": "0.7",
+  "title": "Classes",
+  "notes": [
+   "Pick a class in the main menu, each with a perk and a trade-off",
+   "Speed: 35% faster with a quicker boost, but easier to eat",
+   "Tank: blobs must be 50% bigger to eat you, but 20% slower",
+   "Magnet: pulls in pellets from 3x further, but slower",
+   "Hunter: eats blobs only 3% smaller than you, but loses mass faster when big",
+   "Splitter: splits fly further, merge faster, up to 32 cells, but starts smaller",
+   "Ghost: untouchable while boosting, but boosting costs 3x the mass"
+  ]
+ },
+ {
+  "v": "0.6",
+  "title": "Danger Sense",
+  "notes": [
+   "Radar in the top left: red can eat you, green you can eat, arrows for above or below",
+   "Red screen-edge glow and a warning when danger is close or behind you",
+   "Jelly walls: blobs squish into walls, the floor and the ceiling instead of clipping through",
+   "Squished blobs bulge wider to keep their volume, then wobble back",
+   "First win condition and a \"Fill the box\" progress bar",
+   "Controls bar along the top of the screen",
+   "Smaller pellets, about 25% bigger arena"
+  ]
+ },
+ {
+  "v": "0.5",
+  "title": "Mobile",
+  "notes": [
+   "Play on phones and tablets: drag the left side to fly, the right side to look",
+   "On-screen Split, Drop, Boost, Up, Down and Pause buttons",
+   "Compact HUD and menus on small screens, lighter graphics on mobile"
+  ]
+ },
+ {
+  "v": "0.4",
+  "title": "Glass & Flight",
+  "notes": [
+   "Blobs are see-through jelly glass with glowing edges, like the old Messenger buddies",
+   "Fly freely in 3D: W goes where you look, R and F float up and down",
+   "Pellets float through the whole arena",
+   "Eating is easier for you: blobs just 8% smaller, just by bumping into them"
+  ]
+ },
+ {
+  "v": "0.3",
+  "title": "Frutiger Aero",
+  "notes": [
+   "Whole new look: blue sky, clouds, green hills, soap bubbles",
+   "Glossy blobs and pellets",
+   "Glassy menus with gel buttons"
+  ]
+ },
+ {
+  "v": "0.2",
+  "title": "Split & Menu",
+  "notes": [
+   "Split (Space), merge back after a few seconds, and drop mass (E)",
+   "Snappier movement, no more jelly wobble when moving",
+   "Easier eating",
+   "Main menu with name, colour and difficulty; pause and game-over screens"
+  ]
+ },
+ {
+  "v": "0.1",
+  "title": "First Bite",
+  "notes": [
+   "Blob Arena 3D: agar.io in 3D with a third-person camera",
+   "Eat pellets and smaller blobs, run from bigger ones",
+   "24 bots, boost, leaderboard and best score"
+  ]
+ }
+];
+const VERSION = PATCH_NOTES[0].v;
+const esc = t => t.replace(/[&<>]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;'}[c]));
+$('notesList').innerHTML = PATCH_NOTES.map((p, i) =>
+  `<div class="ver"><h3>v${p.v} · ${esc(p.title)}${i === 0 ? '<span class="cur">Current</span>' : ' <small>previous</small>'}</h3>` +
+  `<ul>${p.notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul></div>`).join('');
+$('verTxt').textContent = `v${VERSION} · ${PATCH_NOTES[0].title}`;
+function refreshNewBadge() {
+  const seen = store.get('blob3d_seen_version') === VERSION;
+  $('notesBtn').innerHTML = 'Patch notes' + (seen ? '' : '<span class="newbadge">NEW</span>');
+}
+refreshNewBadge();
+$('notesBtn').onclick = () => { show('notesMenu'); $('notesList').scrollTop = 0; store.set('blob3d_seen_version', VERSION); refreshNewBadge(); };
+$('notesBack').onclick = () => show('mainMenu');
+
 function show(id) {
-  for (const m of ['mainMenu', 'howMenu', 'pauseMenu', 'overMenu', 'winMenu']) $(m).classList.toggle('hidden', m !== id);
+  for (const m of ['mainMenu', 'howMenu', 'notesMenu', 'pauseMenu', 'overMenu', 'winMenu']) $(m).classList.toggle('hidden', m !== id);
   $('hud').classList.toggle('hidden', id !== null);
   if (id !== null) $('vignette').style.opacity = 0;
 }
