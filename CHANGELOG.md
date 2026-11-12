@@ -2,7 +2,14 @@
 
 Newest first.
 
-## v0.18: High Refresh (current)
+## v0.19: GPU Check (current)
+
+- The game now asks your browser for your fast graphics card
+- If your browser isn't using your graphics card at all (hardware acceleration off), the main menu warns you and shows how to turn it on for your browser
+- Without a graphics card, Auto graphics switches to light settings so the game stays as playable as possible
+- The pause menu shows which graphics card the game is running on
+
+## v0.18: High Refresh
 
 - The game now ticks at your monitor's refresh rate (up to 240 Hz), so 144/200/240 Hz screens get real high-fps movement, not blended 60
 - Auto graphics now keeps full resolution (up to 4K) and only lowers it a little (never below 70%) if your PC can't keep up with your monitor
