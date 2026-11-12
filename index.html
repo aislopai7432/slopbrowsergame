@@ -129,6 +129,11 @@
   .ver .cur{display:inline-block;margin-left:6px;padding:0 8px;border-radius:999px;font-size:11px;color:#fff;vertical-align:2px;
     background:linear-gradient(180deg,#d4fb9c 0%,#8fdc45 48%,#5cb81e 52%,#93e64f 100%);border:1px solid #4b9b1c}
   .ver ul{margin:0;padding-left:20px;font-size:14px;line-height:1.5}
+  .smallbtn{width:auto;margin:8px auto 0;padding:5px 16px;font-size:13px;display:inline-block}
+  .gfxrow{margin-top:6px} #fpsTxt{font-size:12px;opacity:.7;margin-top:4px}
+  /* Fast graphics: no live blur behind the glass panels and no screen-space extras */
+  body.fast .glass{backdrop-filter:none;-webkit-backdrop-filter:none;background:rgba(240,250,255,.88)}
+  body.fast #bokeh, body.fast #flare{display:none}
   #verTxt{font-size:12px;opacity:.55;margin-top:6px}
   .best{margin-top:14px;color:#1b8a1b;font-size:14px;font-weight:600}
   .howto{text-align:left;line-height:1.75;font-size:15px}
@@ -240,6 +245,7 @@
     <div class="btnrow2"><button id="howBtn">How to play</button><button id="notesBtn">Patch notes</button></div>
     <div class="best" id="bestTxt"></div>
     <div id="verTxt"></div>
+    <button id="gfxBtn" class="smallbtn">⚙ Graphics: Auto</button>
   </div>
 </div>
 <div id="howMenu" class="overlay hidden">
@@ -273,6 +279,7 @@
     <h2>Paused</h2>
     <div id="pauseRoom" class="hidden"></div>
     <button class="primary" id="resumeBtn">Resume</button>
+    <div class="gfxrow"><button id="gfxBtn2" class="smallbtn">⚙ Graphics: Auto</button><div id="fpsTxt"></div></div>
     <button id="quitBtn">Main menu</button>
   </div>
 </div>
@@ -309,8 +316,19 @@ const net = {role: 'solo', peer: null, conn: null, remotes: new Map(), code: '',
 const A = 75;  // half-width of the arena
 const H = 85;  // arena height: you can fly anywhere from the grass up to here
 const renderer = new THREE.WebGLRenderer({antialias: true});
-renderer.setPixelRatio(Math.min(devicePixelRatio, IS_TOUCH ? 1.5 : 2));
-renderer.setSize(innerWidth, innerHeight);
+// graphics quality: 'auto' caps the pixel count on big screens and lowers resolution if frames drop,
+// 'fast' is lightweight everywhere, 'pretty' renders at full resolution
+let gfx = 'auto'; try { gfx = localStorage.getItem('blob3d_gfx') || 'auto'; } catch (e) {}
+let resScale = 1;
+function applyResolution() {
+  const maxPR = gfx === 'fast' ? 1 : (gfx === 'pretty' ? 2 : (IS_TOUCH ? 1.5 : 2));
+  const budget = gfx === 'pretty' ? Infinity : gfx === 'fast' ? 1.0e6 : 2.4e6; // rendered pixels per frame
+  let pr = Math.min(devicePixelRatio, maxPR, Math.sqrt(budget / (innerWidth * innerHeight)));
+  if (gfx === 'auto') pr *= resScale;
+  renderer.setPixelRatio(Math.max(0.5, pr));
+  renderer.setSize(innerWidth, innerHeight);
+}
+applyResolution();
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
@@ -320,7 +338,7 @@ scene.fog = new THREE.Fog(0xd6f1ff, 110, 330);
 const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.1, 700);
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth, innerHeight);
+  applyResolution();
 });
 
 // ---------- sky ----------
@@ -516,7 +534,7 @@ function updateScenery(dt, focus) {
   sunRays.position.copy(sunGlow.position); sunRays.material.rotation += dt * 0.02;
   bubbleMat.uniforms.time.value += dt;
   for (const a of auroras) { a.material.uniforms.time.value += dt; a.position.x = camera.position.x; a.position.z = camera.position.z; }
-  updateLensFlare();
+  if (gfx !== 'fast') updateLensFlare();
   for (const c of clouds) { c.a += c.sp * dt; c.s.position.x = Math.cos(c.a) * c.r; c.s.position.z = Math.sin(c.a) * c.r; }
   for (const b of bubbles) {
     if (b.reset || b.m.position.y > 40 || b.m.position.distanceTo(focus) > 90) {
@@ -534,6 +552,18 @@ const pellets = new THREE.InstancedMesh(new THREE.SphereGeometry(0.2, 10, 6),
   new THREE.MeshPhysicalMaterial({roughness: 0.1, clearcoat: 1, envMapIntensity: 1.4}), N_PELLETS);
 const pelletPos = [];
 const tmpM = new THREE.Matrix4(), tmpC = new THREE.Color();
+const PG = 8, PNX = Math.ceil(2 * A / PG) + 1, PNY = Math.ceil(H / PG) + 1;
+const pBuckets = Array.from({length: PNX * PNX * PNY}, () => []);
+const pBucketOf = new Int32Array(N_PELLETS).fill(-1);
+const gclamp = (v, n) => Math.min(n - 1, Math.max(0, v));
+function gridMove(i) { // keep pellet i in the bucket that matches its position
+  const p = pelletPos[i];
+  const nb = gclamp(Math.floor((p.x + A) / PG), PNX) + PNX * (gclamp(Math.floor(p.y / PG), PNY) + PNY * gclamp(Math.floor((p.z + A) / PG), PNX));
+  const ob = pBucketOf[i];
+  if (ob === nb) return;
+  if (ob >= 0) { const arr = pBuckets[ob], k = arr.indexOf(i); arr[k] = arr[arr.length - 1]; arr.pop(); }
+  pBuckets[nb].push(i); pBucketOf[i] = nb;
+}
 function placePellet(i) {
   const p = pelletPos[i] || (pelletPos[i] = new THREE.Vector3());
   // respawn somewhere outside the player's blobs, so pellets don't pop up inside you and get eaten instantly
@@ -544,6 +574,7 @@ function placePellet(i) {
     if (!inside) break;
   }
   if (net.role === 'host') net.dirtyPellets.add(i);
+  gridMove(i);
   setPelletMatrix(i);
 }
 function setPelletMatrix(i) {
@@ -677,6 +708,11 @@ function killCell(c) {
 }
 
 const totalMass = o => o.cells.reduce((s, c) => s + c.mass, 0);
+function renderCentroid(o) { // like centroid(), but using the smoothed positions that are drawn
+  const v = new THREE.Vector3(), t = new THREE.Vector3(); let m = 0;
+  for (const c of o.cells) { t.copy(c.prev || c.pos).lerp(c.pos, c.prev ? simAlpha : 1); v.addScaledVector(t, c.mass); m += c.mass; }
+  return m ? v.divideScalar(m) : v;
+}
 function centroid(o) {
   const v = new THREE.Vector3(); let m = 0;
   for (const c of o.cells) { v.addScaledVector(c.pos, c.mass); m += c.mass; }
@@ -950,6 +986,7 @@ setDiff(diffKey);
 
 // ---------- patch notes (newest first; the first entry is the current version) ----------
 const PATCH_NOTES = [
+ {"v": "0.17", "title": "Smooth Sailing", "notes": ["Fixed lag on gaming PCs with high-refresh monitors: the game logic now runs a steady 60 times a second, and drawing stays smooth in between", "Blobs only check pellets near them, making each game tick about 15x cheaper", "Graphics setting (main menu and pause menu): Auto, Fast or Pretty", "Auto keeps resolution sensible on big screens and lowers it a little if frames drop", "Fast turns off shadows and glass blur for older or busy computers", "The pause menu shows your fps and render resolution"]},
  {"v": "0.16", "title": "Glutton", "notes": ["Digestion is twice as fast for everyone", "New class: Glutton 🍩 digests food 3x faster (on top of that), but loses mass faster when big", "Joining a room now checks you and the host are on the same version, and tells you to refresh if not"]},
  {"v": "0.15", "title": "Better Rooms", "notes": ["The host can go back to the main menu without ending the game: the room keeps running for everyone", "\"Back to the game\" puts the host straight back into the same world; End room is a separate button", "The host's game keeps running even if they switch tabs or apps on a computer (to send the code, say)", "Joining shows each step (contacting the server, finding the room, loading the world) instead of hanging", "Clear messages when a room can't be reached, with what to try", "A \"waiting for the host\" notice appears if the host's game stops sending updates"]},
  {"v": "0.14", "title": "Same World", "notes": ["When the host dies, the game keeps going for everyone and the host respawns into the same world", "Death screen in multiplayer: Respawn puts you back into the same game", "Ending a room now takes a second tap, so the host can't close everyone's game by accident", "Players see Leave room instead of Main menu while in a room"]},
@@ -1256,7 +1293,10 @@ function onOwnerEaten(victim, killer) {
 }
 
 let botSpawnT = 0;
+const SIM_STEP = 1 / 60;
+let simAcc = 0, simAlpha = 1; // how far between the last two logic ticks this frame is drawn
 function update(dt) {
+  for (const c of cells) (c.prev || (c.prev = new THREE.Vector3())).copy(c.pos);
   time += dt;
 
   // --- steering ---
@@ -1331,9 +1371,15 @@ function update(dt) {
   for (const c of cells) {
     const pv = c.owner.isPlayer ? playerPelletValue(c.owner) : 1;
     const reach = c.r + c.owner.cls.reach, reach2 = reach * reach;
-    for (let i = 0; i < N_PELLETS; i++) {
-      const p = pelletPos[i], dx = p.x - c.pos.x, dy = p.y - c.pos.y, dz = p.z - c.pos.z;
-      if (dx * dx + dy * dy + dz * dz < reach2) { feed(c, pv); placePellet(i); }
+    const x0 = gclamp(Math.floor((c.pos.x - reach + A) / PG), PNX), x1 = gclamp(Math.floor((c.pos.x + reach + A) / PG), PNX);
+    const y0 = gclamp(Math.floor((c.pos.y - reach) / PG), PNY), y1 = gclamp(Math.floor((c.pos.y + reach) / PG), PNY);
+    const z0 = gclamp(Math.floor((c.pos.z - reach + A) / PG), PNX), z1 = gclamp(Math.floor((c.pos.z + reach + A) / PG), PNX);
+    for (let gz = z0; gz <= z1; gz++) for (let gy = y0; gy <= y1; gy++) for (let gx = x0; gx <= x1; gx++) {
+      const arr = pBuckets[gx + PNX * (gy + PNY * gz)];
+      for (let k = arr.length - 1; k >= 0; k--) { // backwards: eaten pellets are swapped out of this bucket safely
+        const i = arr[k], p = pelletPos[i], dx = p.x - c.pos.x, dy = p.y - c.pos.y, dz = p.z - c.pos.z;
+        if (dx * dx + dy * dy + dz * dz < reach2) { feed(c, pv); placePellet(i); }
+      }
     }
   }
 
@@ -1391,7 +1437,7 @@ function updateDigestFx(dt) {
   }
   digestFx = digestFx.filter(f => !f.done);
 }
-const _up = new THREE.Vector3(), _right = new THREE.Vector3(), _toCam = new THREE.Vector3();
+const _up = new THREE.Vector3(), _right = new THREE.Vector3(), _toCam = new THREE.Vector3(), _rp = new THREE.Vector3();
 function render3D(dt) {
   updateDigestFx(dt);
   for (const o of owners) if (o.isPlayer) o.mat.opacity = roundOver && o === winnerOwner ? 0.75 : o.cls.ghost && o.boost > 0 ? 0.15 : 0.55;
@@ -1409,13 +1455,14 @@ function render3D(dt) {
       c.gloss.scale.set(A * 0.6, A * 0.3, 1);
       continue;
     }
+    const P = c.prev ? _rp.copy(c.prev).lerp(c.pos, simAlpha) : _rp.copy(c.pos); // smooth between logic ticks
     c.shown = (c.shown || c.r) + (c.r - (c.shown || c.r)) * Math.min(1, dt * 12);
     const shown = c.shown;
     // how much each axis is squashed by the walls (1 = free)
     const k = [
-      Math.min(1, (A - Math.abs(c.pos.x)) / shown),
-      Math.min(1, c.pos.y / shown, (H - c.pos.y) / shown),
-      Math.min(1, (A - Math.abs(c.pos.z)) / shown)].map(v => Math.max(0.2, v));
+      Math.min(1, (A - Math.abs(P.x)) / shown),
+      Math.min(1, P.y / shown, (H - P.y) / shown),
+      Math.min(1, (A - Math.abs(P.z)) / shown)].map(v => Math.max(0.2, v));
     // jelly spring: squash follows the wall with a little overshoot and wobble
     if (!c.sq) { c.sq = [1, 1, 1]; c.sqv = [0, 0, 0]; }
     for (let i = 0; i < 3; i++) {
@@ -1424,16 +1471,16 @@ function render3D(dt) {
       if (k[i] < 1) c.sq[i] = Math.min(c.sq[i], k[i] + 0.04); // never visibly poke through
     }
     // keep the volume: squashed one way = wider the other ways
-    const P = c.sq[0] * c.sq[1] * c.sq[2];
+    const vol = c.sq[0] * c.sq[1] * c.sq[2];
     const free = c.sq.filter(v => v >= 0.97).length;
-    const bulge = free ? Math.min(c.r > H * 0.5 ? 3 : 1.5, Math.pow(1 / P, 1 / free)) : 1;
+    const bulge = free ? Math.min(c.r > H * 0.5 ? 3 : 1.5, Math.pow(1 / vol, 1 / free)) : 1;
     c.mesh.scale.set(...c.sq.map(v => shown * (v >= 0.97 ? v * bulge : v)));
-    c.mesh.position.copy(c.pos);
-    c.label.position.set(c.pos.x, c.pos.y + c.mesh.scale.y * 1.2 + 0.8, c.pos.z);
+    c.mesh.position.copy(P);
+    c.label.position.set(P.x, P.y + c.mesh.scale.y * 1.2 + 0.8, P.z);
     const ls = 3 + shown * 0.9; c.label.scale.set(ls, ls / 4, 1);
     // white shine on the upper-left, always facing you
-    _toCam.subVectors(camera.position, c.pos).normalize();
-    c.gloss.position.copy(c.pos).addScaledVector(_up, shown * 0.45).addScaledVector(_right, -shown * 0.32).addScaledVector(_toCam, shown * 0.75);
+    _toCam.subVectors(camera.position, P).normalize();
+    c.gloss.position.copy(P).addScaledVector(_up, shown * 0.45).addScaledVector(_right, -shown * 0.32).addScaledVector(_toCam, shown * 0.75);
     c.gloss.scale.set(shown * 0.95, shown * 0.55, 1);
   }
 }
@@ -1446,7 +1493,7 @@ function updateCamera(dt) {
   if (!o && state === 'over') o = spectateTarget();
   if (!o) o = owners.filter(x => x.alive).reduce((a, b) => (totalMass(b) > totalMass(a) ? b : a), owners.find(x => x.alive));
   if (!o || !o.cells.length) return;
-  let c = centroid(o);
+  let c = renderCentroid(o);
   const R = massToR(totalMass(o));
   let spread = 0; for (const cell of o.cells) spread = Math.max(spread, cell.pos.distanceTo(c) + cell.r);
   let want = 10 + R * 3.2 + Math.max(0, spread - R) * 1.3;
@@ -1615,7 +1662,7 @@ function sendPellets(conn) {
   }
 }
 function applyPelletChunk(s, a) {
-  for (let k = 0; k * 3 < a.length; k++) { const i = s + k; if (i >= N_PELLETS) break; pelletPos[i].set(a[k * 3], a[k * 3 + 1], a[k * 3 + 2]); setPelletMatrix(i); }
+  for (let k = 0; k * 3 < a.length; k++) { const i = s + k; if (i >= N_PELLETS) break; pelletPos[i].set(a[k * 3], a[k * 3 + 1], a[k * 3 + 2]); gridMove(i); setPelletMatrix(i); }
 }
 
 function updateRoomBadge() {
@@ -1853,7 +1900,7 @@ function applySnapshot(msg) {
     if (o) e.mesh.material = o.mat;
     e.mesh.scale.setScalar(r); e.mesh.position.set(x, y, z); e.pos.set(x, y, z);
   });
-  for (let i = 0; i < msg.p.length; i += 4) { pelletPos[msg.p[i]].set(msg.p[i + 1], msg.p[i + 2], msg.p[i + 3]); setPelletMatrix(msg.p[i]); }
+  for (let i = 0; i < msg.p.length; i += 4) { pelletPos[msg.p[i]].set(msg.p[i + 1], msg.p[i + 2], msg.p[i + 3]); gridMove(msg.p[i]); setPelletMatrix(msg.p[i]); }
   if ((net.badgeT = (net.badgeT || 0) + 1) % 20 === 0) updateRoomBadge();
 }
 function clientUpdate(dt) {
@@ -1929,14 +1976,51 @@ function updateSpectateText() {
   $('specTxt').textContent = o ? `👁 Spectating ${o.name} · mass ${Math.floor(totalMass(o))}` : '👁 Spectating';
 }
 
+// ---------- performance: fps, automatic resolution, graphics setting ----------
+let fpsFrames = 0, fpsTime = 0, fps = 60, goodSecs = 0;
+function trackFps(rawDt) {
+  fpsFrames++; fpsTime += rawDt;
+  if (fpsTime < 1) return;
+  fps = Math.round(fpsFrames / fpsTime); fpsFrames = 0; fpsTime = 0;
+  if (gfx !== 'auto' || state !== 'play' || document.hidden) return;
+  if (fps < 50 && resScale > 0.55) { resScale = Math.max(0.55, resScale * 0.85); goodSecs = 0; applyResolution(); }
+  else if (fps >= 58 && resScale < 1 && ++goodSecs >= 5) { resScale = Math.min(1, resScale * 1.1); goodSecs = 0; applyResolution(); }
+}
+const GFX_NAMES = {auto: 'Auto', fast: 'Fast', pretty: 'Pretty'};
+function applyGfx() {
+  document.body.classList.toggle('fast', gfx === 'fast');
+  sun.castShadow = gfx !== 'fast';
+  resScale = 1; applyResolution();
+  for (const id of ['gfxBtn', 'gfxBtn2']) $(id).textContent = `⚙ Graphics: ${GFX_NAMES[gfx]}`;
+}
+function cycleGfx() {
+  gfx = {auto: 'fast', fast: 'pretty', pretty: 'auto'}[gfx];
+  store.set('blob3d_gfx', gfx); applyGfx(); updateFpsTxt();
+}
+function updateFpsTxt() {
+  const res = Math.round(renderer.getPixelRatio() / (devicePixelRatio || 1) * 100);
+  $('fpsTxt').textContent = `${fps} fps · rendering at ${res}% resolution`;
+}
+$('gfxBtn').onclick = cycleGfx; $('gfxBtn2').onclick = cycleGfx;
+applyGfx();
+setInterval(() => { if (state === 'paused') updateFpsTxt(); }, 500);
+
 // ---------- loop ----------
 for (let i = 0; i < N_BOTS; i++) spawnBot(); // bots play on the title screen
 $('bestTxt').textContent = bestText();
 let last = performance.now();
 function frame(now) {
-  const dt = Math.min(0.033, (now - last) / 1000); last = now;
+  const rawDt = Math.min(0.25, (now - last) / 1000); last = now;
+  const dt = Math.min(0.033, rawDt);
+  trackFps(rawDt);
   if (net.role === 'client') clientUpdate(dt);
-  else if (net.role === 'host' || (state !== 'paused' && !fx6Active)) update(dt); // a hosted world never pauses
+  else if (net.role === 'host' || (state !== 'paused' && !fx6Active)) { // a hosted world never pauses
+    // game logic always runs 60 times a second, whatever the screen's refresh rate
+    simAcc += rawDt; let n = 0;
+    while (simAcc >= SIM_STEP && n < 5) { update(SIM_STEP); simAcc -= SIM_STEP; n++; }
+    if (n === 5) simAcc = 0;
+    simAlpha = simAcc / SIM_STEP;
+  }
   $('netWait').classList.toggle('hidden', !(net.role === 'client' && performance.now() - (net.lastSnap || 0) > 3000));
   if (net.role === 'host' && (net.sendT -= dt) <= 0 && net.remotes.size) { net.sendT = 0.05; hostSnapshot(); }
   if (state === 'play' && me && me.alive && me.cells.length) { updateHUD(dt); drawRadar(); }

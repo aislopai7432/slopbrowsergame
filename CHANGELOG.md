@@ -2,7 +2,16 @@
 
 Newest first.
 
-## v0.16: Glutton (current)
+## v0.17: Smooth Sailing (current)
+
+- Fixed lag on gaming PCs with high-refresh monitors: the game logic now runs a steady 60 times a second, and drawing stays smooth in between
+- Blobs only check pellets near them, making each game tick about 15x cheaper
+- Graphics setting (main menu and pause menu): Auto, Fast or Pretty
+- Auto keeps resolution sensible on big screens and lowers it a little if frames drop
+- Fast turns off shadows and glass blur for older or busy computers
+- The pause menu shows your fps and render resolution
+
+## v0.16: Glutton
 
 - Digestion is twice as fast for everyone
 - New class: Glutton 🍩 digests food 3x faster (on top of that), but loses mass faster when big
