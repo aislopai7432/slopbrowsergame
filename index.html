@@ -68,6 +68,15 @@
     background:linear-gradient(180deg,#c4f1ff 0%,#5cc8f5 48%,#2299dd 52%,#5fd0ff 100%)}
   button.primary{margin-top:22px;font-size:22px;padding:14px;color:#fff;text-shadow:0 1px 2px rgba(0,70,0,.55);border-color:#4b9b1c;
     background:linear-gradient(180deg,#d4fb9c 0%,#8fdc45 48%,#5cb81e 52%,#93e64f 100%);box-shadow:0 4px 14px rgba(40,120,0,.35),inset 0 1px 0 #f6ffe8}
+  .classes{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+  .cls{border-radius:14px;padding:7px 4px 6px;cursor:pointer;text-align:center;border:1px solid rgba(0,80,140,.25);
+    background:linear-gradient(180deg,#ffffff 0%,#eef8ff 48%,#d3ecfb 52%,#eef9ff 100%);box-shadow:0 2px 5px rgba(0,60,120,.15)}
+  .cls .ic{font-size:20px;line-height:1.1}
+  .cls .nm{font-size:12px;font-weight:700}
+  .cls.sel{color:#fff;text-shadow:0 1px 2px rgba(0,60,120,.6);border-color:#1b86c9;
+    background:linear-gradient(180deg,#c4f1ff 0%,#5cc8f5 48%,#2299dd 52%,#5fd0ff 100%)}
+  #clsDesc{font-size:13px;margin-top:8px;min-height:36px;text-align:left;line-height:1.4}
+  #clsDesc .up{color:#1b8a1b} #clsDesc .down{color:#c0283c}
   .best{margin-top:14px;color:#1b8a1b;font-size:14px;font-weight:600}
   .howto{text-align:left;line-height:1.75;font-size:15px}
   .howto b{color:#1477c4;display:inline-block;min-width:92px}
@@ -159,6 +168,9 @@
     <div class="seg" id="diff">
       <button data-d="easy">Easy</button><button data-d="normal">Normal</button><button data-d="hard">Hard</button>
     </div>
+    <label>Class</label>
+    <div class="classes" id="classes"></div>
+    <div id="clsDesc"></div>
     <button class="primary" id="playBtn">PLAY</button>
     <button id="howBtn">How to play</button>
     <div class="best" id="bestTxt"></div>
@@ -409,9 +421,34 @@ const MIN_SPLIT = 20, MAX_CELLS = 16;
 const EJECT_COST = 4, EJECT_MASS = 3.5, MIN_EJECT = 15;
 const massToR = m => 0.55 * Math.sqrt(m);
 const speedFor = r => 16 / Math.pow(r, 0.42);
+// player classes: every perk comes with a trade-off
+const BASE_CLASS = {speed: 1, eatRatio: PLAYER_EAT_RATIO, defense: EAT_RATIO, reach: PLAYER_PELLET_REACH, splitLaunch: 1,
+  merge: 1, maxCells: MAX_CELLS, decay: 1, boostCd: 2.5, boostCost: 0.05, ghost: false, startMass: 12};
+const CLASSES = {
+  balanced: {icon: '⚪', name: 'Balanced', up: 'No weaknesses', down: 'No strengths either', mods: {}},
+  speed:    {icon: '⚡', name: 'Speed', up: '35% faster, boost recharges twice as fast', down: 'Easier to eat: anything 10% bigger can eat you',
+             mods: {speed: 1.35, boostCd: 1.25, defense: 1.1}},
+  tank:     {icon: '🛡️', name: 'Tank', up: 'Blobs must be 50% bigger than you to eat you', down: '20% slower',
+             mods: {defense: 1.5, speed: 0.8}},
+  magnet:   {icon: '🧲', name: 'Magnet', up: 'Pulls in pellets from 3x further away', down: '10% slower, needs a 15% edge to eat blobs',
+             mods: {reach: 7, speed: 0.9, eatRatio: 1.15}},
+  hunter:   {icon: '🎯', name: 'Hunter', up: 'Eats blobs only 3% smaller than you', down: 'Mass melts away twice as fast when big',
+             mods: {eatRatio: 1.03, decay: 2}},
+  splitter: {icon: '✂️', name: 'Splitter', up: 'Splits fly 50% further, merge twice as fast, up to 32 cells', down: 'Starts smaller',
+             mods: {splitLaunch: 1.5, merge: 0.5, maxCells: 32, startMass: 7}},
+  ghost:    {icon: '👻', name: 'Ghost', up: 'Untouchable while boosting', down: 'Boosting costs 3x the mass',
+             mods: {ghost: true, boostCost: 0.15}},
+};
+let cls = {...BASE_CLASS};
 const WIN_R = H * 0.33;                       // radius at which you "fill the box"
 const WIN_MASS = Math.pow(WIN_R / 0.55, 2);
-const canEat = (a, b) => a.mass > b.mass * (a.owner && a.owner.isPlayer ? PLAYER_EAT_RATIO : EAT_RATIO);
+const canEat = (a, b) => {
+  if (b.owner && b.owner.isPlayer) {
+    if (cls.ghost && b.owner.boost > 0) return false;  // ghost: untouchable while boosting
+    return a.mass > b.mass * cls.defense;               // tank / speed change how safe you are
+  }
+  return a.mass > b.mass * (a.owner && a.owner.isPlayer ? cls.eatRatio : EAT_RATIO);
+};
 // how close a target's centre must be: bots must cover the centre, you only need to overlap it halfway
 const eatRange = (a, b) => a.owner.isPlayer ? a.r + b.r * 0.5 : a.r;
 
@@ -513,14 +550,14 @@ function aimDir(o) {
 function split(o) {
   const d = aimDir(o);
   for (const c of [...o.cells]) {
-    if (o.cells.length >= MAX_CELLS) break;
+    if (o.cells.length >= (o.isPlayer ? cls.maxCells : MAX_CELLS)) break;
     if (c.mass < MIN_SPLIT) continue;
     c.mass /= 2; c.r = massToR(c.mass);
     const n = makeCell(o, c.mass, c.pos.x + d.x * c.r * 0.5, c.pos.y + d.y * c.r * 0.5, c.pos.z + d.z * c.r * 0.5);
     n.mesh.scale.setScalar(c.r);
-    n.launch.copy(d).multiplyScalar(28 + c.r * 3);
+    n.launch.copy(d).multiplyScalar((28 + c.r * 3) * (o.isPlayer ? cls.splitLaunch : 1));
     n.vel.copy(c.vel);
-    c.mergeT = n.mergeT = 9 + c.mass * 0.02;
+    c.mergeT = n.mergeT = (9 + c.mass * 0.02) * (o.isPlayer ? cls.merge : 1);
   }
 }
 
@@ -539,8 +576,8 @@ function eject(o) {
 
 function boost(o) {
   if (!o || o.boostCd > 0 || totalMass(o) < 14) return;
-  o.boost = 0.35; o.boostCd = 2.5;
-  for (const c of o.cells) c.mass *= 0.95;
+  o.boost = 0.35; o.boostCd = o.isPlayer ? cls.boostCd : 2.5;
+  for (const c of o.cells) c.mass *= 1 - (o.isPlayer ? cls.boostCost : 0.05);
 }
 
 // ---------- bot AI ----------
@@ -708,6 +745,20 @@ for (const h of COLORS) {
   s.onclick = () => { myHue = h; store.set('blob3d_hue', h); document.querySelectorAll('.swatch').forEach(x => x.classList.remove('sel')); s.classList.add('sel'); };
   $('swatches').appendChild(s);
 }
+let clsKey = CLASSES[store.get('blob3d_class')] ? store.get('blob3d_class') : 'balanced';
+for (const [k, c] of Object.entries(CLASSES)) {
+  const el = document.createElement('div'); el.className = 'cls'; el.dataset.k = k;
+  el.innerHTML = `<div class="ic">${c.icon}</div><div class="nm">${c.name}</div>`;
+  el.onclick = () => setClass(k);
+  $('classes').appendChild(el);
+}
+function setClass(k) {
+  clsKey = k; store.set('blob3d_class', k);
+  document.querySelectorAll('.cls').forEach(e => e.classList.toggle('sel', e.dataset.k === k));
+  const c = CLASSES[k];
+  $('clsDesc').innerHTML = `<div class="up">▲ ${c.up}</div><div class="down">▼ ${c.down}</div>`;
+}
+setClass(clsKey);
 function setDiff(k) {
   diffKey = k; store.set('blob3d_diff', k);
   document.querySelectorAll('#diff button').forEach(b => b.classList.toggle('sel', b.dataset.d === k));
@@ -750,9 +801,10 @@ function start() {
   diff = DIFFS[diffKey]; N_BOTS = diff.bots;
   clearWorld();
   me = makeOwner(name, true, myHue);
-  makeCell(me, 12, 0, H / 2, 0);
+  cls = {...BASE_CLASS, ...CLASSES[clsKey].mods};
+  makeCell(me, cls.startMass, 0, H / 2, 0);
   for (let i = 0; i < N_BOTS; i++) spawnBot();
-  time = 0; peak = 12; yaw = Math.PI; pitch = 0.3;
+  time = 0; peak = cls.startMass; yaw = Math.PI; pitch = 0.3;
   for (const k in keys) keys[k] = false;
   joy.x = joy.y = 0; joy.id = null; lookId = null; stick.style.display = 'none';
   state = 'play';
@@ -799,7 +851,7 @@ function update(dt) {
     const o = c.owner;
     c.r = massToR(c.mass);
     c.mergeT = Math.max(0, c.mergeT - dt);
-    let sp = speedFor(c.r) * (o.boost > 0 ? 2.6 : 1);
+    let sp = speedFor(c.r) * (o.boost > 0 ? 2.6 : 1) * (o.isPlayer ? cls.speed : 1);
     const target = o.dir.clone().multiplyScalar(sp);
     // keep split cells grouped: gentle pull toward the group's center
     if (o.cells.length > 1) {
@@ -823,7 +875,7 @@ function update(dt) {
     if (penF > 0) c.launch.y += penF * 30 * dt;
     if (penC > 0) c.launch.y -= penC * 30 * dt;
     c.pos.y = Math.max(sqY, Math.min(H - sqY, c.pos.y));
-    if (c.mass > 150) c.mass -= c.mass * 0.0012 * dt;
+    if (c.mass > 150) c.mass -= c.mass * 0.0012 * dt * (o.isPlayer ? cls.decay : 1);
   }
 
   // --- same-owner: push apart until merge timer is up, then merge ---
@@ -852,7 +904,7 @@ function update(dt) {
 
   // --- eat pellets ---
   for (const c of cells) {
-    const reach = c.r + (c.owner.isPlayer ? PLAYER_PELLET_REACH : BOT_PELLET_REACH), reach2 = reach * reach;
+    const reach = c.r + (c.owner.isPlayer ? cls.reach : BOT_PELLET_REACH), reach2 = reach * reach;
     for (let i = 0; i < N_PELLETS; i++) {
       const p = pelletPos[i], dx = p.x - c.pos.x, dy = p.y - c.pos.y, dz = p.z - c.pos.z;
       if (dx * dx + dy * dy + dz * dz < reach2) { c.mass += 1; placePellet(i); }
@@ -895,6 +947,7 @@ function update(dt) {
 
 const _up = new THREE.Vector3(), _right = new THREE.Vector3(), _toCam = new THREE.Vector3();
 function render3D(dt) {
+  if (me && me.alive) me.mat.opacity = cls.ghost && me.boost > 0 ? 0.15 : 0.55;
   _up.set(0, 1, 0).applyQuaternion(camera.quaternion);
   _right.set(1, 0, 0).applyQuaternion(camera.quaternion);
   for (const c of cells) {
@@ -954,8 +1007,8 @@ function updateHUD(dt) {
   const sorted = owners.filter(o => o.alive).map(o => ({o, m: totalMass(o)})).sort((a, b) => b.m - a.m);
   const rank = sorted.findIndex(x => x.o === me) + 1;
   $('mass').textContent = 'Mass ' + Math.floor(totalMass(me)) + (me.cells.length > 1 ? `  (${me.cells.length} cells)` : '');
-  $('rank').textContent = `Rank ${rank} / ${sorted.length}`;
-  $('boostfill').style.width = (100 * (1 - me.boostCd / 2.5)) + '%';
+  $('rank').textContent = `Rank ${rank} / ${sorted.length} · ${CLASSES[clsKey].icon} ${CLASSES[clsKey].name}`;
+  $('boostfill').style.width = (100 * (1 - me.boostCd / cls.boostCd)) + '%';
   const fill = Math.min(1, totalMass(me) / WIN_MASS);
   $('fillTxt').textContent = `Fill the box: ${Math.floor(fill * 100)}%`;
   $('fillfill').style.width = fill * 100 + '%';
