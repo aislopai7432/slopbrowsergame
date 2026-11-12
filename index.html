@@ -17,7 +17,22 @@
   #rank{font-size:14px;opacity:.75;margin-top:1px}
   #boostbar{width:140px;height:9px;background:rgba(0,60,120,.15);margin-top:9px;border-radius:9px;overflow:hidden;box-shadow:inset 0 1px 2px rgba(0,40,80,.3)}
   #boostfill{height:100%;width:100%;border-radius:9px;background:linear-gradient(180deg,#bff0ff 0%,#5cc8f5 49%,#2aa6e6 50%,#6fd6ff 100%)}
-  #keys{position:absolute;left:18px;bottom:14px;font-size:13px;padding:7px 14px;border-radius:999px}
+  #keys{position:absolute;left:50%;top:14px;transform:translateX(-50%);display:flex;flex-wrap:wrap;justify-content:center;gap:4px 14px;
+    padding:7px 16px;border-radius:22px;font-size:13px;white-space:nowrap;max-width:calc(100% - 520px)}
+  kbd{display:inline-block;padding:1px 7px;margin-right:3px;border-radius:6px;font:600 11px "Segoe UI",system-ui,sans-serif;color:var(--ink);
+    background:linear-gradient(#fff,#dbeefa);border:1px solid rgba(0,80,140,.3);box-shadow:0 1px 0 rgba(0,60,120,.25)}
+  .bar{width:140px;height:9px;background:rgba(0,60,120,.15);margin-top:6px;border-radius:9px;overflow:hidden;box-shadow:inset 0 1px 2px rgba(0,40,80,.3)}
+  #fillTxt{font-size:12px;margin-top:8px;font-weight:600;opacity:.8}
+  #fillfill{height:100%;width:0;border-radius:9px;background:linear-gradient(180deg,#d4fb9c 0%,#8fdc45 48%,#5cb81e 52%,#93e64f 100%)}
+  #radar{position:absolute;left:18px;top:150px;width:170px;height:170px;border-radius:50%;transition:box-shadow .2s}
+  #radar.danger{box-shadow:0 0 0 3px rgba(255,60,80,.85),0 0 28px rgba(255,40,60,.7)}
+  #vignette{position:fixed;inset:0;pointer-events:none;opacity:0;transition:opacity .15s;
+    background:radial-gradient(ellipse at center,rgba(255,40,60,0) 55%,rgba(255,40,60,.55) 100%)}
+  #dangerTxt{position:absolute;left:50%;top:84px;transform:translateX(-50%);padding:6px 16px;border-radius:999px;font-weight:700;font-size:15px;
+    color:#fff;text-shadow:0 1px 2px rgba(120,0,0,.6);border:1px solid #c0283c;
+    background:linear-gradient(180deg,#ffc4cc 0%,#ff6b7d 48%,#e8384e 52%,#ff7d8e 100%);animation:pulse .6s infinite alternate}
+  @keyframes pulse{from{transform:translateX(-50%) scale(1)}to{transform:translateX(-50%) scale(1.07)}}
+  #winMenu h1{font-size:54px}
   #lb{position:absolute;top:16px;right:18px;padding:12px 16px;border-radius:20px;min-width:180px;font-size:14px}
   #lb h3{margin:0 0 6px;font-size:15px;text-align:center;font-weight:600;letter-spacing:.5px}
   #lbrows>div{display:flex;justify-content:space-between;gap:12px;padding:1px 0}
@@ -84,10 +99,14 @@
   #tUp,#tDown{width:54px;height:54px;font-size:20px}
   #tPause{left:50%;top:12px;width:44px;height:44px;margin-left:-22px;font-size:16px}
   .overlay{overflow-y:auto;align-items:safe center;touch-action:pan-y}
+  @media (max-width:1150px){ #keys{font-size:11px;gap:3px 9px;max-width:calc(100% - 440px)} }
   @media (max-width:700px),(max-height:500px){
     #hud{padding:10px}
     #stats{padding:6px 12px 8px;min-width:0;border-radius:14px}
-    #mass{font-size:18px} #rank{font-size:12px} #boostbar{width:100px;height:7px;margin-top:6px}
+    #mass{font-size:18px} #rank{font-size:12px} #boostbar,.bar{width:100px;height:7px;margin-top:6px}
+    #fillTxt{font-size:10px;margin-top:4px}
+    #radar{top:auto;bottom:auto;top:112px;left:10px;width:96px;height:96px}
+    #dangerTxt{top:62px;font-size:12px}
     #lb{top:10px;right:10px;padding:6px 10px;min-width:118px;font-size:11px;border-radius:14px}
     #lb h3{font-size:12px;margin-bottom:3px}
     #lbrows>div:nth-child(n+6):not(.me){display:none}
@@ -101,13 +120,19 @@
 </style>
 </head>
 <body>
+<div id="vignette"></div>
 <div id="hud" class="hidden">
   <div id="stats" class="glass">
     <div id="mass">Mass 10</div>
     <div id="rank"></div>
     <div id="boostbar"><div id="boostfill"></div></div>
+    <div id="fillTxt">Fill the box: 0%</div>
+    <div class="bar"><div id="fillfill"></div></div>
   </div>
-  <div id="keys" class="glass">WASD fly · Mouse look · R/F up/down · Space split · E drop mass · Shift boost</div>
+  <canvas id="radar" class="glass"></canvas>
+  <div id="dangerTxt" class="hidden">⚠ Danger behind you!</div>
+  <div id="keys" class="glass"><span><kbd>WASD</kbd>Fly</span><span><kbd>Mouse</kbd>Look</span><span><kbd>R</kbd><kbd>F</kbd>Up / down</span>
+    <span><kbd>Space</kbd>Split</span><span><kbd>E</kbd>Drop</span><span><kbd>Shift</kbd>Boost</span><span><kbd>Esc</kbd>Pause</span></div>
   <div id="lb" class="glass"><h3>Leaderboard</h3><div id="lbrows"></div></div>
   <div id="touch">
     <div class="zone" id="lzone"></div>
@@ -151,6 +176,7 @@
       <div><b>Shift</b> Speed boost, costs a little mass</div>
       <div><b>Esc / P</b> Pause</div>
       <p><b>On a phone:</b> drag the left side of the screen to fly, drag the right side to look around, and use the buttons for split, drop, boost and up/down. Landscape works best.</p>
+      <p><b>Goal:</b> grow big enough to fill the box and you win. The radar (top left) shows red blobs that can eat you and green ones you can eat; ▲▼ means above or below you.</p>
       <p>Eat the small pellets to grow. You can eat any blob even slightly smaller than you (8%) by bumping into it. Bots need to be 20% bigger than you. Bigger blobs are slower. Split cells pull back together and merge after a few seconds.</p>
     </div>
     <button class="primary" id="howBack">Back</button>
@@ -161,6 +187,16 @@
     <h2>Paused</h2>
     <button class="primary" id="resumeBtn">Resume</button>
     <button id="quitBtn">Main menu</button>
+  </div>
+</div>
+<div id="winMenu" class="overlay hidden">
+  <div class="panel glass">
+    <h1><b>You win!</b></h1>
+    <div class="tag">You grew big enough to fill the whole box.</div>
+    <div class="stat" id="winStats"></div>
+    <div class="best" id="winBest"></div>
+    <button class="primary" id="winAgain">Play again</button>
+    <button id="winMenuBtn">Main menu</button>
   </div>
 </div>
 <div id="overMenu" class="overlay hidden">
@@ -178,8 +214,8 @@
 <script>
 // ---------- setup ----------
 const IS_TOUCH = matchMedia('(pointer: coarse)').matches;
-const A = 60;  // half-width of the arena
-const H = 70;  // arena height: you can fly anywhere from the grass up to here
+const A = 75;  // half-width of the arena
+const H = 85;  // arena height: you can fly anywhere from the grass up to here
 const renderer = new THREE.WebGLRenderer({antialias: true});
 renderer.setPixelRatio(Math.min(devicePixelRatio, IS_TOUCH ? 1.5 : 2));
 renderer.setSize(innerWidth, innerHeight);
@@ -349,9 +385,9 @@ function updateScenery(dt, focus) {
 }
 
 // ---------- pellets (instanced, glossy) ----------
-const N_PELLETS = IS_TOUCH ? 2000 : 2800;
+const N_PELLETS = IS_TOUCH ? 2600 : 3800;
 const PELLET_HUES = [0.5, 0.55, 0.58, 0.3, 0.36, 0.14, 0.08, 0.9, 0.78];
-const pellets = new THREE.InstancedMesh(new THREE.SphereGeometry(0.32, 12, 8),
+const pellets = new THREE.InstancedMesh(new THREE.SphereGeometry(0.2, 10, 6),
   new THREE.MeshPhysicalMaterial({roughness: 0.1, clearcoat: 1, envMapIntensity: 1.4}), N_PELLETS);
 const pelletPos = [];
 const tmpM = new THREE.Matrix4(), tmpC = new THREE.Color();
@@ -373,6 +409,8 @@ const MIN_SPLIT = 20, MAX_CELLS = 16;
 const EJECT_COST = 4, EJECT_MASS = 3.5, MIN_EJECT = 15;
 const massToR = m => 0.55 * Math.sqrt(m);
 const speedFor = r => 16 / Math.pow(r, 0.42);
+const WIN_R = H * 0.33;                       // radius at which you "fill the box"
+const WIN_MASS = Math.pow(WIN_R / 0.55, 2);
 const canEat = (a, b) => a.mass > b.mass * (a.owner && a.owner.isPlayer ? PLAYER_EAT_RATIO : EAT_RATIO);
 // how close a target's centre must be: bots must cover the centre, you only need to overlap it halfway
 const eatRange = (a, b) => a.owner.isPlayer ? a.r + b.r * 0.5 : a.r;
@@ -459,7 +497,10 @@ function spawnBot() {
   const o = makeOwner(name, false);
   let x = (Math.random() * 2 - 1) * (A - 8), y = 5 + Math.random() * (H - 10), z = (Math.random() * 2 - 1) * (A - 8);
   if (me && me.cells.length) { const c = centroid(me); if (Math.hypot(x - c.x, y - c.y, z - c.z) < 30) { x = -x; z = -z; } }
-  makeCell(o, 8 + Math.random() * (Math.random() < 0.2 ? 120 : 30), x, y, z);
+  let m = 8 + Math.random() * (Math.random() < 0.2 ? 120 : 30);
+  // as you grow, some new bots arrive at your scale so there's always food (and danger)
+  if (me && me.alive && Math.random() < 0.45) m = Math.max(m, totalMass(me) * (0.15 + Math.random() * 0.9));
+  makeCell(o, m, x, y, z);
   return o;
 }
 
@@ -675,8 +716,9 @@ document.querySelectorAll('#diff button').forEach(b => b.onclick = () => setDiff
 setDiff(diffKey);
 
 function show(id) {
-  for (const m of ['mainMenu', 'howMenu', 'pauseMenu', 'overMenu']) $(m).classList.toggle('hidden', m !== id);
+  for (const m of ['mainMenu', 'howMenu', 'pauseMenu', 'overMenu', 'winMenu']) $(m).classList.toggle('hidden', m !== id);
   $('hud').classList.toggle('hidden', id !== null);
+  if (id !== null) $('vignette').style.opacity = 0;
 }
 function bestText() { return best ? 'Best mass: ' + best : ''; }
 $('playBtn').onclick = start;
@@ -686,6 +728,8 @@ $('howBack').onclick = () => show('mainMenu');
 $('resumeBtn').onclick = resume;
 $('quitBtn').onclick = toMainMenu;
 $('menuBtn').onclick = toMainMenu;
+$('winAgain').onclick = start;
+$('winMenuBtn').onclick = toMainMenu;
 
 function toMainMenu() {
   state = 'menu'; document.exitPointerLock?.();
@@ -716,6 +760,17 @@ function start() {
   lockMouse();
 }
 
+function win() {
+  state = 'won';
+  peak = Math.max(peak, totalMass(me));
+  if (peak > best) { best = Math.floor(peak); store.set('blob3d_best', best); }
+  document.exitPointerLock?.();
+  $('winStats').textContent = `Mass ${Math.floor(totalMass(me))} · took ${Math.floor(time / 60)}m ${Math.floor(time % 60)}s`;
+  $('winBest').textContent = bestText();
+  $('vignette').style.opacity = 0;
+  setTimeout(() => { if (state === 'won') show('winMenu'); }, 900);
+}
+
 function die(killer) {
   state = 'over'; me.alive = false;
   if (peak > best) { best = Math.floor(peak); store.set('blob3d_best', best); }
@@ -723,6 +778,7 @@ function die(killer) {
   $('overKiller').textContent = `${killer.name} ate you`;
   $('overPeak').textContent = `Peak mass ${Math.floor(peak)} · survived ${Math.floor(time)}s`;
   $('overBest').textContent = bestText();
+  $('vignette').style.opacity = 0;
   setTimeout(() => { if (state === 'over') show('overMenu'); }, 900);
 }
 
@@ -756,11 +812,18 @@ function update(dt) {
     c.vel.lerp(target, Math.min(1, dt * 18));
     c.pos.addScaledVector(c.vel, dt).addScaledVector(c.launch, dt);
     c.launch.multiplyScalar(Math.exp(-4.5 * dt));
-    const lim = A - c.r * 0.6;
-    c.pos.x = Math.max(-lim, Math.min(lim, c.pos.x));
-    c.pos.z = Math.max(-lim, Math.min(lim, c.pos.z));
-    c.pos.y = Math.max(c.r, Math.min(H - c.r * 0.6, c.pos.y));
-    if (c.mass > 60) c.mass -= c.mass * 0.004 * dt;
+    // jelly walls: you can squish in up to about half your radius, and the wall pushes back like a spring
+    const sq = Math.min(c.r * 0.45, A), sqY = Math.min(c.r * 0.45, H / 2);
+    for (const ax of ['x', 'z']) {
+      const pen = Math.abs(c.pos[ax]) + c.r - A;
+      if (pen > 0) c.launch[ax] -= Math.sign(c.pos[ax]) * pen * 30 * dt;
+      c.pos[ax] = Math.max(-A + sq, Math.min(A - sq, c.pos[ax]));
+    }
+    const penF = c.r - c.pos.y, penC = c.pos.y + c.r - H;
+    if (penF > 0) c.launch.y += penF * 30 * dt;
+    if (penC > 0) c.launch.y -= penC * 30 * dt;
+    c.pos.y = Math.max(sqY, Math.min(H - sqY, c.pos.y));
+    if (c.mass > 150) c.mass -= c.mass * 0.0012 * dt;
   }
 
   // --- same-owner: push apart until merge timer is up, then merge ---
@@ -827,6 +890,7 @@ function update(dt) {
   owners = owners.filter(o => o.alive || o === me);
   while (owners.filter(o => !o.isPlayer).length < N_BOTS) spawnBot();
   if (me && me.alive) peak = Math.max(peak, totalMass(me));
+  if (state === 'play' && me && me.alive && totalMass(me) >= WIN_MASS) win();
 }
 
 const _up = new THREE.Vector3(), _right = new THREE.Vector3(), _toCam = new THREE.Vector3();
@@ -834,10 +898,27 @@ function render3D(dt) {
   _up.set(0, 1, 0).applyQuaternion(camera.quaternion);
   _right.set(1, 0, 0).applyQuaternion(camera.quaternion);
   for (const c of cells) {
-    const shown = c.mesh.scale.x + (c.r - c.mesh.scale.x) * Math.min(1, dt * 12);
-    c.mesh.scale.setScalar(shown);
+    c.shown = (c.shown || c.r) + (c.r - (c.shown || c.r)) * Math.min(1, dt * 12);
+    const shown = c.shown;
+    // how much each axis is squashed by the walls (1 = free)
+    const k = [
+      Math.min(1, (A - Math.abs(c.pos.x)) / shown),
+      Math.min(1, c.pos.y / shown, (H - c.pos.y) / shown),
+      Math.min(1, (A - Math.abs(c.pos.z)) / shown)].map(v => Math.max(0.2, v));
+    // jelly spring: squash follows the wall with a little overshoot and wobble
+    if (!c.sq) { c.sq = [1, 1, 1]; c.sqv = [0, 0, 0]; }
+    for (let i = 0; i < 3; i++) {
+      c.sqv[i] += ((k[i] - c.sq[i]) * 420 - c.sqv[i] * 16) * dt;
+      c.sq[i] += c.sqv[i] * dt;
+      if (k[i] < 1) c.sq[i] = Math.min(c.sq[i], k[i] + 0.04); // never visibly poke through
+    }
+    // keep the volume: squashed one way = wider the other ways
+    const P = c.sq[0] * c.sq[1] * c.sq[2];
+    const free = c.sq.filter(v => v >= 0.97).length;
+    const bulge = free ? Math.min(1.5, Math.pow(1 / P, 1 / free)) : 1;
+    c.mesh.scale.set(...c.sq.map(v => shown * (v >= 0.97 ? v * bulge : v)));
     c.mesh.position.copy(c.pos);
-    c.label.position.set(c.pos.x, c.pos.y + shown * 1.2 + 0.8, c.pos.z);
+    c.label.position.set(c.pos.x, c.pos.y + c.mesh.scale.y * 1.2 + 0.8, c.pos.z);
     const ls = 3 + shown * 0.9; c.label.scale.set(ls, ls / 4, 1);
     // white shine on the upper-left, always facing you
     _toCam.subVectors(camera.position, c.pos).normalize();
@@ -875,9 +956,63 @@ function updateHUD(dt) {
   $('mass').textContent = 'Mass ' + Math.floor(totalMass(me)) + (me.cells.length > 1 ? `  (${me.cells.length} cells)` : '');
   $('rank').textContent = `Rank ${rank} / ${sorted.length}`;
   $('boostfill').style.width = (100 * (1 - me.boostCd / 2.5)) + '%';
+  const fill = Math.min(1, totalMass(me) / WIN_MASS);
+  $('fillTxt').textContent = `Fill the box: ${Math.floor(fill * 100)}%`;
+  $('fillfill').style.width = fill * 100 + '%';
   let html = sorted.slice(0, 8).map((x, i) => `<div class="${x.o === me ? 'me' : ''}"><span>${i + 1}. ${x.o.name}</span><span>${Math.floor(x.m)}</span></div>`).join('');
   if (rank > 8) html += `<div class="me"><span>${rank}. You</span><span>${Math.floor(totalMass(me))}</span></div>`;
   $('lbrows').innerHTML = html;
+}
+
+// ---------- radar / danger sense ----------
+const radar = $('radar'), rctx = radar.getContext('2d');
+function drawRadar() {
+  const dpr = Math.min(devicePixelRatio, 2), S = radar.clientWidth;
+  if (radar.width !== Math.round(S * dpr)) { radar.width = radar.height = Math.round(S * dpr); }
+  const g = rctx; g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, S, S);
+  const cx = S / 2, cy = S / 2, rad = S / 2 - 6;
+  const c = centroid(me), R = massToR(totalMass(me));
+  const RANGE = 45 + R * 2;
+  const sy = Math.sin(yaw), cyw = Math.cos(yaw);
+  let smallest = me.cells[0], largest = me.cells[0];
+  for (const m of me.cells) { if (m.mass < smallest.mass) smallest = m; if (m.mass > largest.mass) largest = m; }
+
+  // rings, view cone
+  g.strokeStyle = 'rgba(11,58,92,.18)'; g.lineWidth = 1;
+  for (const f of [1, 0.66, 0.33]) { g.beginPath(); g.arc(cx, cy, rad * f, 0, Math.PI * 2); g.stroke(); }
+  g.fillStyle = 'rgba(80,190,255,.18)';
+  g.beginPath(); g.moveTo(cx, cy); g.arc(cx, cy, rad, -Math.PI / 2 - 0.55, -Math.PI / 2 + 0.55); g.closePath(); g.fill();
+
+  let danger = 0, behind = false;
+  for (const b of cells) {
+    if (b.owner === me) continue;
+    const dx = b.pos.x - c.x, dz = b.pos.z - c.z, dy = b.pos.y - c.y;
+    const fwd = -dx * sy - dz * cyw, rt = dx * cyw - dz * sy;
+    const dist = Math.hypot(dx, dy, dz);
+    const threat = canEat(b, smallest), food = canEat(largest, b);
+    if (threat) {
+      const lvl = 1 - (dist - b.r - R) / 35;
+      if (lvl > danger) { danger = lvl; behind = fwd < 0; }
+    }
+    let d2 = Math.hypot(fwd, rt) / RANGE;
+    if (d2 > 1) { if (!threat || d2 > 2) continue; d2 = 1; } // far threats stick to the rim
+    const ang = Math.atan2(rt, fwd), px = cx + Math.sin(ang) * d2 * rad, py = cy - Math.cos(ang) * d2 * rad;
+    const size = Math.max(2.5, Math.min(12, b.r / RANGE * rad));
+    g.fillStyle = threat ? '#ff3b55' : food ? '#3cc83c' : '#e8b400';
+    g.beginPath(); g.arc(px, py, size, 0, Math.PI * 2); g.fill();
+    if (Math.abs(dy) > 6) { // above / below marker
+      g.beginPath(); const t = dy > 0 ? -1 : 1, oy = py + t * (size + 5);
+      g.moveTo(px - 4, oy - t * 3); g.lineTo(px + 4, oy - t * 3); g.lineTo(px, oy + t * 3); g.closePath(); g.fill();
+    }
+  }
+  // you
+  g.fillStyle = '#1b86c9'; g.strokeStyle = '#fff'; g.lineWidth = 2;
+  g.beginPath(); g.arc(cx, cy, 5, 0, Math.PI * 2); g.fill(); g.stroke();
+
+  danger = Math.max(0, Math.min(1, danger));
+  radar.classList.toggle('danger', danger > 0.25 && Math.floor(performance.now() / 250) % 2 === 0);
+  $('vignette').style.opacity = (danger * 0.9).toFixed(2);
+  $('dangerTxt').classList.toggle('hidden', !(behind && danger > 0.35));
 }
 
 // ---------- loop ----------
@@ -887,7 +1022,7 @@ let last = performance.now();
 function frame(now) {
   const dt = Math.min(0.033, (now - last) / 1000); last = now;
   if (state !== 'paused') update(dt);
-  if (state === 'play') updateHUD(dt);
+  if (state === 'play') { updateHUD(dt); drawRadar(); }
   else yaw += dt * 0.15;
   render3D(dt);
   updateCamera(dt);
