@@ -12,7 +12,7 @@ Open `index.html` in a browser, or play the GitHub Pages version if it's enabled
 
 Press **Host game** to open a room and share the 5-letter code. Friends press **Join game** and type it in (up to 8 players). Players connect straight to the host's browser through [PeerJS](https://peerjs.com/); the host's world (and its bots) is shared with everyone, and the host needs to keep the game open.
 
-If two players' networks block a direct connection, the game automatically falls back to a **relay**. PeerJS's free relays were [shut down in December 2023](https://github.com/orgs/peers/discussions/1172), so this project has its own: a tiny server that can run on an old Android phone. See [relay/README.md](relay/README.md) for setup. The relay's current address lives in `relay.json`, which the phone updates automatically.
+**Multiplayer works best on the same Wi-Fi.** Across different networks it might not connect, because some home routers block direct connections. Optionally, the game can fall back to a **relay** when that happens. PeerJS's free relays were [shut down in December 2023](https://github.com/orgs/peers/discussions/1172), so this project has its own: a tiny server that can run on an old Android phone. See [relay/README.md](relay/README.md) for setup. The relay's current address lives in `relay.json`, which the phone updates automatically.
 
 ## Controls
 

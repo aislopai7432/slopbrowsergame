@@ -2,7 +2,11 @@
 
 Newest first.
 
-## v0.23: Relay (current)
+## v0.24: Heads Up (current)
+
+- The main menu now notes that multiplayer works best on the same Wi-Fi, and might not connect across different networks
+
+## v0.23: Relay
 
 - Multiplayer now works even when your networks block a direct connection: the game falls back to a relay automatically
 - The relay can run on an old Android phone (Termux + a free Cloudflare tunnel): no port forwarding and no monthly limits

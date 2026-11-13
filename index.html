@@ -136,6 +136,7 @@
   #hostBanner b{letter-spacing:3px;color:#1477c4;font-size:17px}
   #hostBanner button{width:auto;margin:6px 0 0;padding:5px 16px;font-size:13px}
   #netWait{position:absolute;left:50%;top:84px;transform:translateX(-50%);padding:6px 16px;border-radius:999px;font-size:14px;font-weight:600;white-space:nowrap}
+  #mpNote{font-size:12px;margin-top:6px;opacity:.7}
   #mpStatus{font-size:13px;margin-top:6px;min-height:0;font-weight:600;color:#1477c4}
   #mpStatus.err{color:#c0283c}
   #roomBadge{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);padding:6px 16px;border-radius:999px;font-size:13px;font-weight:600;white-space:nowrap}
@@ -318,6 +319,7 @@
     <button class="primary" id="playBtn">PLAY</button>
     <div class="btnrow2" id="mpBtns"><button id="hostBtn">👥 Host game</button><button id="joinBtn">🔗 Join game</button></div>
     <div id="joinRow" class="hidden"><input id="codeIn" maxlength="5" placeholder="Room code" autocomplete="off" autocapitalize="characters"><button id="joinGo">Join</button></div>
+    <div id="mpNote">📶 Multiplayer works best on the same Wi-Fi. Across different networks it might not connect.</div>
     <div id="mpStatus"></div>
     <div class="btnrow2"><button id="howBtn">How to play</button><button id="notesBtn">Patch notes</button></div>
     <div class="best" id="bestTxt"></div>
@@ -337,7 +339,7 @@
       <div><b>E</b> Drop pellets of your mass (hold)</div>
       <div><b>Shift</b> Speed boost, costs a little mass</div>
       <div><b>Esc / P</b> Pause</div>
-      <p><b>Multiplayer:</b> press <i>Host game</i> to open a room and share the 5-letter code. Friends press <i>Join game</i> and type it in. The host's world (and bots) is shared with everyone, and the host needs to keep their tab open.</p>
+      <p><b>Multiplayer:</b> press <i>Host game</i> to open a room and share the 5-letter code. Friends press <i>Join game</i> and type it in. The host's world (and bots) is shared with everyone, and the host needs to keep their tab open. It works best when everyone is on the same Wi-Fi; across different networks it might not be able to connect.</p>
       <p><b>On a phone:</b> drag the left side of the screen to fly, drag the right side to look around, and use the buttons for split, drop, boost and up/down. Landscape works best.</p>
       <p><b>Goal:</b> grow until you physically fill the whole box, pressing on every wall at once, and you win. The radar (top left) shows red blobs that can eat you and green ones you can eat; ▲▼ means above or below you.</p>
       <p>Eat the small pellets to grow. You can eat any blob even slightly smaller than you (8%) by bumping into it. Bots need to be 20% bigger than you. Bigger blobs are slower. Split cells pull back together and merge after a few seconds.</p>
@@ -1261,6 +1263,7 @@ setDiff(diffKey);
 
 // ---------- patch notes (newest first; the first entry is the current version) ----------
 const PATCH_NOTES = [
+ {"v": "0.24", "title": "Heads Up", "notes": ["The main menu now notes that multiplayer works best on the same Wi-Fi, and might not connect across different networks"]},
  {"v": "0.23", "title": "Relay", "notes": ["Multiplayer now works even when your networks block a direct connection: the game falls back to a relay automatically", "The relay can run on an old Android phone (Termux + a free Cloudflare tunnel): no port forwarding and no monthly limits", "Multiplayer uses about 5x less data than before (15 compact updates a second)", "Clearer join messages, including when the game switches to the relay"]},
  {"v": "0.22", "title": "Promised Future", "notes": ["Deep royal-blue skies with big, shaded, billowy clouds and more vivid green grass", "Blue glass domes, white glass towers across the lake and a soft rainbow", "FrutaigerAqua-style fish: striped clownfish, goldfish, blue tang, neon tetras and rainbowfish", "AeroDream-style screen frame: aqua wave swooshes, glossy leaves and bubbles", "Round bubble buttons for pause, sound and fullscreen", "Every blob gets a second, softer refracted highlight, like a real glass orb", "Chunky glossy logo with a leaf, shine sweeps on big buttons and crisper bokeh bubbles", "Sound! A calm Wii-style soundtrack, bubbly plops when you eat, whooshes and soft clicks (mute in the pause menu or the bubble button)"]},
  {"v": "0.21", "title": "Aero Dream", "notes": ["Soft bloom glow on the sun, highlights and glossy edges (Auto and Pretty graphics)", "Schools of glossy tropical fish swim around the arena", "Dolphins leap out of the lake with splashes", "Round, glossy, Wii-style trees around the island", "Twinkling sparkles in the air", "Menus: a glossy orb logo, water droplets on the glass panels and Vista-style light swooshes"]},
@@ -1432,6 +1435,7 @@ function updateMenuForRoom() {
   const hosting = net.role === 'host';
   $('hostBanner').classList.toggle('hidden', !hosting);
   $('mpBtns').classList.toggle('hidden', hosting);
+  $('mpNote').classList.toggle('hidden', hosting);
   $('joinRow').classList.add('hidden');
   $('playBtn').textContent = hosting ? 'BACK TO THE GAME' : 'PLAY';
   if (hosting) {
