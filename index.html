@@ -1261,6 +1261,7 @@ setDiff(diffKey);
 
 // ---------- patch notes (newest first; the first entry is the current version) ----------
 const PATCH_NOTES = [
+ {"v": "0.23", "title": "Relay", "notes": ["Multiplayer now works even when your networks block a direct connection: the game falls back to a relay automatically", "The relay can run on an old Android phone (Termux + a free Cloudflare tunnel): no port forwarding and no monthly limits", "Multiplayer uses about 5x less data than before (15 compact updates a second)", "Clearer join messages, including when the game switches to the relay"]},
  {"v": "0.22", "title": "Promised Future", "notes": ["Deep royal-blue skies with big, shaded, billowy clouds and more vivid green grass", "Blue glass domes, white glass towers across the lake and a soft rainbow", "FrutaigerAqua-style fish: striped clownfish, goldfish, blue tang, neon tetras and rainbowfish", "AeroDream-style screen frame: aqua wave swooshes, glossy leaves and bubbles", "Round bubble buttons for pause, sound and fullscreen", "Every blob gets a second, softer refracted highlight, like a real glass orb", "Chunky glossy logo with a leaf, shine sweeps on big buttons and crisper bokeh bubbles", "Sound! A calm Wii-style soundtrack, bubbly plops when you eat, whooshes and soft clicks (mute in the pause menu or the bubble button)"]},
  {"v": "0.21", "title": "Aero Dream", "notes": ["Soft bloom glow on the sun, highlights and glossy edges (Auto and Pretty graphics)", "Schools of glossy tropical fish swim around the arena", "Dolphins leap out of the lake with splashes", "Round, glossy, Wii-style trees around the island", "Twinkling sparkles in the air", "Menus: a glossy orb logo, water droplets on the glass panels and Vista-style light swooshes"]},
  {"v": "0.20", "title": "Fullscreen", "notes": ["Fullscreen button on the main menu and in the pause menu", "The game remembers it: once you've turned fullscreen on, Play puts you straight back into fullscreen", "On Android phones, fullscreen also locks to landscape"]},
@@ -1993,6 +1994,47 @@ function peerErrorText(type) {
   if (type === 'webrtc') return "Couldn't connect to the host. One of your networks may block direct connections. Try another network.";
   return `Connection problem (${type}). Try again.`;
 }
+// ---------- relay fallback: when two networks can't connect directly, messages go through a relay
+// (relay/server.js, e.g. on an old phone). Its current address is published in relay.json next to the game.
+async function relayUrl() {
+  const q = new URLSearchParams(location.search).get('relay'); // for testing: ?relay=ws://...
+  if (q) return q.replace(/\/$/, '');
+  try {
+    const r = await withTimeout(fetch('relay.json?t=' + Date.now(), {cache: 'no-store'}), 5000);
+    const j = await r.json(); return j.url ? String(j.url).replace(/\/$/, '') : null;
+  } catch (e) { return null; }
+}
+// looks just like a PeerJS DataConnection to the rest of the game
+function makeRelayConn(peerId, sendRaw) {
+  const h = {};
+  const c = {peer: peerId, open: true, relay: true,
+    send(m) { if (c.open) sendRaw(JSON.stringify(m)); },
+    close() { if (!c.open) return; c.open = false; (h.close || []).forEach(f => f()); },
+    on(ev, f) { (h[ev] || (h[ev] = [])).push(f); },
+    emit(ev, a) { (h[ev] || []).forEach(f => f(a)); }};
+  return c;
+}
+async function connectRelayHost(code) {
+  const url = await relayUrl();
+  if (!url || net.role !== 'host' || net.code !== code) return;
+  let ws; try { ws = new WebSocket(`${url}/?room=${code}&role=host`); } catch (e) { return; }
+  net.relayWs = ws;
+  const conns = new Map();
+  ws.onmessage = e => {
+    const s = String(e.data), bar = s.indexOf('|'); if (bar < 1) return;
+    const id = s.slice(0, bar); let m; try { m = JSON.parse(s.slice(bar + 1)); } catch (err) { return; }
+    if (m.t === '_join') { const c = makeRelayConn('relay:' + id, p => { if (ws.readyState === 1) ws.send(id + '|' + p); }); conns.set(id, c); hostAccept(c); return; }
+    const c = conns.get(id); if (!c) return;
+    if (m.t === '_leave') { conns.delete(id); c.close(); return; }
+    c.emit('data', m);
+  };
+  ws.onclose = () => {
+    for (const c of conns.values()) c.close();
+    conns.clear();
+    if (net.relayWs === ws && net.role === 'host' && net.code === code) setTimeout(() => connectRelayHost(code), 5000); // relay restarted: reconnect
+  };
+}
+
 const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
 async function loadPeerJS() { // only fetched when someone hosts or joins, so solo play never depends on it
   if (window.Peer) return;
@@ -2033,6 +2075,7 @@ function updateRoomBadge() {
 }
 function leaveNet() {
   if (net.peer) { try { net.peer.destroy(); } catch (e) {} }
+  if (net.relayWs) { const ws = net.relayWs; net.relayWs = null; try { ws.close(); } catch (e) {} }
   Object.assign(net, {role: 'solo', peer: null, conn: null, code: '', myId: null, started: false});
   net.remotes.clear(); net.dirtyPellets.clear(); ownersById = new Map(); cellsById = new Map();
   updateRoomBadge();
@@ -2051,6 +2094,7 @@ async function hostGame(attempt = 0) {
     Object.assign(net, {role: 'host', peer, code, started: false});
     mpStatus('');
     start();
+    connectRelayHost(code); // friends whose networks block a direct connection come in this way
     updateRoomBadge();
   });
   peer.on('connection', conn => hostAccept(conn));
@@ -2078,6 +2122,7 @@ function hostOnData(conn, msg) {
     if (roundOver) { o.alive = false; owners = owners.filter(x => x !== o); } // joins at the next round
     else respawnHuman(o);
     conn.send({t: 'welcome', id: o.id, code: net.code});
+    net.newJoiner = true;
     sendPellets(conn);
     updateRoomBadge(); if (state === 'menu') updateMenuForRoom();
     return;
@@ -2103,8 +2148,14 @@ function hostDrop(conn) {
   updateRoomBadge(); if (state === 'menu') updateMenuForRoom();
 }
 function hostSnapshot() {
+  // the full player list (names, colours, classes) only goes out when it changes, plus once a second
+  const alive = owners.filter(o => o.alive), sig = alive.map(o => o.id + o.clsKey).join(',');
+  net.snapN = (net.snapN || 0) + 1;
+  const full = sig !== net.lastSig || net.snapN % 15 === 0 || net.newJoiner;
+  net.lastSig = sig; net.newJoiner = false;
   const msg = {t: 's',
-    o: owners.filter(o => o.alive).map(o => [o.id, o.name, +o.hue.toFixed(3), o.isPlayer ? 1 : 0, o.clsKey || '', o.boost > 0 ? 1 : 0, +o.boostCd.toFixed(2)]),
+    o: full ? alive.map(o => [o.id, o.name, +o.hue.toFixed(3), o.isPlayer ? 1 : 0, o.clsKey || '', o.boost > 0 ? 1 : 0, +o.boostCd.toFixed(2)]) : undefined,
+    h: alive.filter(o => o.isPlayer).map(o => [o.id, o.boost > 0 ? 1 : 0, +o.boostCd.toFixed(1)]),
     c: cells.map(c => [c.id, c.owner.id, r1(c.pos.x), r1(c.pos.y), r1(c.pos.z), +c.mass.toFixed(1), Math.round(c.digest)]),
     e: ejecta.map(e => [r1(e.pos.x), r1(e.pos.y), r1(e.pos.z), +e.r.toFixed(2), e.owner.id]),
     p: []};
@@ -2156,25 +2207,56 @@ async function joinGame() {
   store.set('blob3d_name', $('nameIn').value.trim());
   mpStatus('Contacting the matchmaking server…');
   const peer = new Peer(undefined, peerOptions());
-  let welcomed = false, opened = false;
+  net.peer = peer;
+  let welcomed = false, opened = false, usingRelay = false;
+  const hello = () => ({t: 'hello', v: VERSION, name, hue: myHue, cls: clsKey});
   const fail = text => { if (welcomed) return; mpStatus(text, true); done(); try { peer.destroy(); } catch (e) {} };
-  setTimeout(() => { if (!opened) fail("Couldn't reach the matchmaking server. It may be busy or blocked on this network. Try again in a minute."); }, 12000);
+  // if the direct connection can't be made, go through the relay instead (returns false if there's no relay)
+  const tryRelay = async () => {
+    if (usingRelay || welcomed) return true;
+    usingRelay = true;
+    const url = await relayUrl();
+    if (!url) { usingRelay = false; return false; }
+    mpStatus('Direct connection blocked, connecting through the relay…');
+    let ws; try { ws = new WebSocket(`${url}/?room=${code}&role=client`); } catch (e) { usingRelay = false; return false; }
+    const c = makeRelayConn('host', p => { if (ws.readyState === 1) ws.send(p); });
+    c.open = false;
+    net.conn = c; net.relayWs = ws;
+    ws.onopen = () => { c.open = true; mpStatus('Connected through the relay! Loading the world…'); c.send(hello()); };
+    ws.onmessage = e => {
+      let m; try { m = JSON.parse(e.data); } catch (err) { return; }
+      if (m.t === 'welcome') { welcomed = true; done(); try { peer.destroy(); } catch (err) {} }
+      clientOnData(m);
+    };
+    ws.onclose = ev => {
+      c.open = false;
+      if (welcomed) { clientLost(); return; }
+      fail(ev.code === 4004 ? "The relay doesn't have that room. Make sure the host's game is open, then try again."
+        : ev.code === 4005 ? 'That room is full.'
+        : "Couldn't connect directly or through the relay. Check that the relay phone is running.");
+    };
+    return true;
+  };
+  setTimeout(async () => { if (!opened && !welcomed && !(await tryRelay())) fail("Couldn't reach the matchmaking server. It may be busy or blocked on this network. Try again in a minute."); }, 12000);
   peer.on('open', () => {
     opened = true;
+    if (new URLSearchParams(location.search).get('forcerelay')) { tryRelay(); return; } // testing
     mpStatus(`Looking for room ${code}…`);
     const conn = peer.connect(PEER_PREFIX + code, {reliable: true, serialization: 'json'});
-    setTimeout(() => fail(conn.open
+    net.conn = conn;
+    setTimeout(async () => { if (!conn.open && !welcomed && !usingRelay) await tryRelay(); }, 7000);
+    setTimeout(() => { if (usingRelay) return; fail(conn.open
       ? "Reached the host, but their game didn't answer. Ask them to keep the game open on screen and try again."
-      : "Couldn't connect to the host. One of your networks may block direct connections (common on school/work Wi-Fi). Try mobile data or another network."), 20000);
-    conn.on('open', () => { mpStatus('Connected! Loading the world…'); conn.send({t: 'hello', v: VERSION, name, hue: myHue, cls: clsKey}); });
-    conn.on('data', msg => { if (msg.t === 'welcome') { welcomed = true; done(); } clientOnData(msg); });
-    conn.on('close', () => clientLost());
-    conn.on('error', () => clientLost());
-    net.peer = peer; net.conn = conn;
+      : "Couldn't connect to the host. One of your networks may block direct connections (common on school/work Wi-Fi). Try mobile data or another network."); }, 20000);
+    conn.on('open', () => { if (usingRelay) { conn.close(); return; } mpStatus('Connected! Loading the world…'); conn.send(hello()); });
+    conn.on('data', msg => { if (usingRelay) return; if (msg.t === 'welcome') { welcomed = true; done(); } clientOnData(msg); });
+    conn.on('close', () => { if (!usingRelay) clientLost(); });
+    conn.on('error', () => { if (!usingRelay) clientLost(); });
   });
   peer.on('error', err => {
+    if (usingRelay) return;
     if (err.type === 'peer-unavailable') fail('No room with that code. Check it and try again.');
-    else if (!welcomed) fail(peerErrorText(err.type));
+    else if (!welcomed) tryRelay().then(ok => { if (!ok) fail(peerErrorText(err.type)); });
     else clientLost();
   });
 }
@@ -2223,8 +2305,14 @@ function clientOnData(msg) {
 }
 function applySnapshot(msg) {
   net.lastSnap = performance.now();
+  if (msg.o) applyOwners(msg.o);
+  for (const [id, boosting, bcd] of msg.h || []) { const o = ownersById.get(id); if (o) { o.boost = boosting ? 1 : 0; o.boostCd = bcd; } }
+  if (!me) me = ownersById.get(net.myId) || null;
+  applyCells(msg);
+}
+function applyOwners(list) {
   const seenO = new Set();
-  for (const [id, name, hue, human, ck, boosting, bcd] of msg.o) {
+  for (const [id, name, hue, human, ck, boosting, bcd] of list) {
     let o = ownersById.get(id);
     if (!o) { o = makeOwner(name, !!human, hue); o.id = id; ownersById.set(id, o); }
     else if (!owners.includes(o)) owners.push(o);
@@ -2234,7 +2322,8 @@ function applySnapshot(msg) {
   }
   for (const o of owners) if (!seenO.has(o.id)) o.alive = false;
   owners = owners.filter(o => o.alive || o === me);
-  if (!me) me = ownersById.get(net.myId) || null;
+}
+function applyCells(msg) {
   const seenC = new Set();
   for (const [id, oid, x, y, z, mass, dig] of msg.c) {
     const o = ownersById.get(oid); if (!o) continue;
@@ -2464,7 +2553,7 @@ function frame(now) {
     simAlpha = simAcc / SIM_STEP;
   }
   $('netWait').classList.toggle('hidden', !(net.role === 'client' && performance.now() - (net.lastSnap || 0) > 3000));
-  if (net.role === 'host' && (net.sendT -= dt) <= 0 && net.remotes.size) { net.sendT = 0.05; hostSnapshot(); }
+  if (net.role === 'host' && (net.sendT -= dt) <= 0 && net.remotes.size) { net.sendT = 1 / 15; hostSnapshot(); }
   if (state === 'play' && me && me.alive && me.cells.length) { updateHUD(dt); drawRadar(); }
   else if (!specDrag) yaw += dt * (state === 'over' ? 0.08 : 0.15);
   if (state === 'over') updateSpectateText();

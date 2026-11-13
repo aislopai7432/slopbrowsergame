@@ -2,7 +2,14 @@
 
 Newest first.
 
-## v0.22: Promised Future (current)
+## v0.23: Relay (current)
+
+- Multiplayer now works even when your networks block a direct connection: the game falls back to a relay automatically
+- The relay can run on an old Android phone (Termux + a free Cloudflare tunnel): no port forwarding and no monthly limits
+- Multiplayer uses about 5x less data than before (15 compact updates a second)
+- Clearer join messages, including when the game switches to the relay
+
+## v0.22: Promised Future
 
 - Deep royal-blue skies with big, shaded, billowy clouds and more vivid green grass
 - Blue glass domes, white glass towers across the lake and a soft rainbow
